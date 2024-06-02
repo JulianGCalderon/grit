@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use grit::command::{self, GitResult};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -12,12 +13,12 @@ enum Command {
     Init,
 }
 
-fn main() {
+fn main() -> GitResult<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Command::Init => {
-            println!("init");
-        }
+        Command::Init => command::init()?,
     }
+
+    Ok(())
 }
