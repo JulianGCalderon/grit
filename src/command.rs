@@ -1,5 +1,5 @@
 use std::{
-    fs::{create_dir_all, write},
+    fs::{create_dir_all, remove_dir_all, write},
     io,
     path::Path,
 };
@@ -18,6 +18,8 @@ pub type GitResult<T> = Result<T, GitError>;
 
 pub fn init() -> GitResult<()> {
     let git_dir = Path::new(GIT_DIR);
+
+    remove_dir_all(git_dir)?;
     create_dir_all(git_dir)?;
 
     let head = git_dir.join("HEAD");
