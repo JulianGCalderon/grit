@@ -1,11 +1,11 @@
 use std::{
     env,
     fs::{create_dir_all, remove_dir_all, write, File},
-    io::{self, Seek, Write},
+    io::{self, stdout, BufRead, BufReader, Seek, Write},
     path::Path,
 };
 
-use flate2::{write::ZlibEncoder, Compression};
+use flate2::Compression;
 use sha1::{Digest, Sha1};
 use thiserror::Error;
 
@@ -101,7 +101,7 @@ pub fn hash_object(file: &Path) -> GitResult<()> {
 
     let mut object_file = File::create(object_path)?;
 
-    let mut encoder = ZlibEncoder::new(&mut object_file, Compression::default());
+    let mut encoder = flate2::write::ZlibEncoder::new(&mut object_file, Compression::default());
 
     encoder.write(header.as_bytes())?;
 
@@ -113,6 +113,27 @@ pub fn hash_object(file: &Path) -> GitResult<()> {
     );
 
     encoder.finish()?;
+
+    Ok(())
+}
+
+pub fn cat_file(hash: &str) -> GitResult<()> {
+    let object_path = {
+        let git_dir = env::var(GIT_DIR_ENV);
+        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+        let git_dir = Path::new(git_dir);
+        git_dir.join(&format!("objects/{}/{}", &hash[..2], &hash[2..]))
+    };
+
+    let object_file = File::open(object_path)?;
+
+    let mut decoder = BufReader::new(flate2::read::ZlibDecoder::new(&object_file));
+
+    let mut object_header = Vec::new();
+    let _ = decoder.read_until(0, &mut object_header)?;
+    // todo: handle object header
+
+    io::copy(&mut decoder, &mut stdout())?;
 
     Ok(())
 }

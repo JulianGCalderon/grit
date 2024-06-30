@@ -17,6 +17,10 @@ enum Command {
         #[arg()]
         path: PathBuf,
     },
+    CatFile {
+        #[arg()]
+        hash: String,
+    },
 }
 
 fn main() -> GitResult<()> {
@@ -25,6 +29,7 @@ fn main() -> GitResult<()> {
     match &cli.command {
         Command::Init => command::init()?,
         Command::HashObject { path } => command::hash_object(&path)?,
+        Command::CatFile { hash } => command::cat_file(&hash)?,
     }
 
     Ok(())
