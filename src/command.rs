@@ -1,10 +1,11 @@
 use std::{
     env,
     fs::{create_dir_all, remove_dir_all, write, File},
-    io,
+    io::{self, Seek, Write},
     path::Path,
 };
 
+use flate2::{write::ZlibEncoder, Compression};
 use sha1::{Digest, Sha1};
 use thiserror::Error;
 
@@ -86,6 +87,32 @@ pub fn hash_object(file: &Path) -> GitResult<()> {
 
     let hex_hash = base16ct::lower::encode_string(&hash);
     println!("{hex_hash}");
+
+    let object_path = {
+        let git_dir = env::var(GIT_DIR_ENV);
+        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+        let git_dir = Path::new(git_dir);
+        git_dir.join(&format!("objects/{}/{}", &hex_hash[..2], &hex_hash[2..]))
+    };
+
+    if let Some(base) = object_path.parent() {
+        create_dir_all(base)?;
+    };
+
+    let mut object_file = File::create(object_path)?;
+
+    let mut encoder = ZlibEncoder::new(&mut object_file, Compression::default());
+
+    encoder.write(header.as_bytes())?;
+
+    file.seek(io::SeekFrom::Start(0))?;
+    let write_file_size = io::copy(&mut file, &mut encoder)?;
+    assert_eq!(
+        read_file_size, write_file_size,
+        "read file size is different from write file size"
+    );
+
+    encoder.finish()?;
 
     Ok(())
 }
