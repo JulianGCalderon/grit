@@ -1,10 +1,11 @@
 use std::{
     env,
-    fs::{create_dir_all, remove_dir_all, write},
+    fs::{create_dir_all, remove_dir_all, write, File},
     io,
     path::Path,
 };
 
+use sha1::{Digest, Sha1};
 use thiserror::Error;
 
 const GIT_DIR: &str = ".grit";
@@ -61,6 +62,30 @@ pub fn init() -> GitResult<()> {
     let refs_tags = refs.join("tags");
     create_dir_all(refs_heads)?;
     create_dir_all(refs_tags)?;
+
+    Ok(())
+}
+
+pub fn hash_object(file: &Path) -> GitResult<()> {
+    let mut file = File::open(file)?;
+
+    let mut hasher = Sha1::new();
+
+    let file_size = file.metadata()?.len();
+    let header = format!("blob {file_size}\0");
+
+    hasher.update(&header);
+    let read_file_size = io::copy(&mut file, &mut hasher)?;
+
+    assert_eq!(
+        file_size, read_file_size,
+        "metadata file size is different from real file size"
+    );
+
+    let hash = hasher.finalize();
+
+    let hex_hash = base16ct::lower::encode_string(&hash);
+    println!("{hex_hash}");
 
     Ok(())
 }

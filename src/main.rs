@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 use grit::command::{self, GitResult};
 
@@ -11,6 +13,10 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     Init,
+    HashObject {
+        #[arg()]
+        path: PathBuf,
+    },
 }
 
 fn main() -> GitResult<()> {
@@ -18,6 +24,7 @@ fn main() -> GitResult<()> {
 
     match &cli.command {
         Command::Init => command::init()?,
+        Command::HashObject { path } => command::hash_object(&path)?,
     }
 
     Ok(())
