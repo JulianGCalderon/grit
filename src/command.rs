@@ -2,7 +2,7 @@ use std::{
     env,
     fs::{create_dir_all, remove_dir_all, write},
     io,
-    path::PathBuf,
+    path::Path,
 };
 
 use thiserror::Error;
@@ -19,11 +19,9 @@ pub enum GitError {
 pub type GitResult<T> = Result<T, GitError>;
 
 pub fn init() -> GitResult<()> {
-    let git_dir = {
-        let git_dir = env::var(GIT_DIR_ENV);
-        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-        PathBuf::from(git_dir)
-    };
+    let git_dir = env::var(GIT_DIR_ENV);
+    let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+    let git_dir = Path::new(git_dir);
 
     let _ = remove_dir_all(&git_dir);
     create_dir_all(&git_dir)?;
