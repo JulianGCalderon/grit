@@ -21,6 +21,10 @@ enum Command {
         #[arg()]
         hash: String,
     },
+    UpdateIndex {
+        #[arg()]
+        path: PathBuf,
+    },
 }
 
 fn main() -> GitResult<()> {
@@ -30,6 +34,7 @@ fn main() -> GitResult<()> {
         Command::Init => command::init()?,
         Command::HashObject { path } => command::hash_object(&path)?,
         Command::CatFile { hash } => command::cat_file(&hash)?,
+        Command::UpdateIndex { path } => command::update_index(&path)?,
     }
 
     Ok(())
