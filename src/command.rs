@@ -156,7 +156,12 @@ pub fn update_index(file: &Path) -> GitResult<()> {
     let metadata = file.metadata()?;
 
     // todo: handle appending
-    let mut index_file = File::create(index_path)?;
+    let mut index_file = File::options()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(true)
+        .open(index_path)?;
 
     index_file.write_all("DIRC".as_bytes())?;
     index_file.write_all(&[0, 0, 0, 2])?;
@@ -210,17 +215,38 @@ pub fn update_index(file: &Path) -> GitResult<()> {
         index_file.write_all(&hash)?;
     }
 
-    // todo: flags
-    index_file.write_all(&[0, 0])?;
-
     // todo: canonicalize as relative
-    index_file.write_all(file.as_os_str().as_bytes())?;
+    let canonicalized_name = file.as_os_str().as_bytes();
 
-    // todo: calculate padding
-    index_file.write_all(&[0, 0, 0, 0, 0, 0, 0, 0])?;
+    let assume_valid = 0 as u16;
+    let extended_flag = 0 as u16;
+    let stage = 0.min(0b11) as u16;
+    let name_length = canonicalized_name.len().min(0xFFF) as u16;
 
-    // todo: calculate hash
-    index_file.write_all(&[0xff; 20])?;
+    let flags = name_length + (stage << 12) + (extended_flag << 14) + (assume_valid << 15);
+
+    index_file.write_all(&flags.to_be_bytes())?;
+
+    index_file.write_all(canonicalized_name)?;
+
+    index_file.flush()?;
+    let size = (index_file.metadata()?.size() + 20) % 8;
+
+    let padding = vec![0; (8 - size) as usize];
+
+    index_file.write_all(&padding)?;
+
+    let mut hasher = Sha1::new();
+
+    index_file.flush()?;
+    index_file.seek(io::SeekFrom::Start(0))?;
+    let _read_file_size = io::copy(&mut index_file, &mut hasher)?;
+
+    let hash = hasher.finalize();
+
+    index_file.write_all(&hash)?;
+
+    // todo: hash-object
 
     Ok(())
 }
