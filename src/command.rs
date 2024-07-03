@@ -194,26 +194,24 @@ pub fn update_index(file: &Path) -> GitResult<()> {
 
     index_file.write_all(&(metadata.st_size() as u32).to_be_bytes())?;
 
-    {
-        let mut file = File::open(file)?;
+    let mut object_file = File::open(file)?;
 
-        let mut hasher = Sha1::new();
+    let mut hasher = Sha1::new();
 
-        let file_size = file.metadata()?.len();
-        let header = format!("blob {file_size}\0");
+    let file_size = object_file.metadata()?.len();
+    let header = format!("blob {file_size}\0");
 
-        hasher.update(&header);
-        let read_file_size = io::copy(&mut file, &mut hasher)?;
+    hasher.update(&header);
+    let read_file_size = io::copy(&mut object_file, &mut hasher)?;
 
-        assert_eq!(
-            file_size, read_file_size,
-            "metadata file size is different from real file size"
-        );
+    assert_eq!(
+        file_size, read_file_size,
+        "metadata file size is different from real file size"
+    );
 
-        let hash = hasher.finalize();
+    let user_hash = hasher.finalize();
 
-        index_file.write_all(&hash)?;
-    }
+    index_file.write_all(&user_hash)?;
 
     // todo: canonicalize as relative
     let canonicalized_name = file.as_os_str().as_bytes();
@@ -242,11 +240,39 @@ pub fn update_index(file: &Path) -> GitResult<()> {
     index_file.seek(io::SeekFrom::Start(0))?;
     let _read_file_size = io::copy(&mut index_file, &mut hasher)?;
 
-    let hash = hasher.finalize();
+    let index_hash = hasher.finalize();
 
-    index_file.write_all(&hash)?;
+    index_file.write_all(&index_hash)?;
 
-    // todo: hash-object
+    {
+        let object_path = {
+            let git_dir = env::var(GIT_DIR_ENV);
+            let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+            let git_dir = Path::new(git_dir);
+            let hex_hash = base16ct::lower::encode_string(&user_hash);
+            git_dir.join(&format!("objects/{}/{}", &hex_hash[..2], &hex_hash[2..]))
+        };
+
+        if let Some(base) = object_path.parent() {
+            create_dir_all(base)?;
+        };
+
+        let mut object_file = File::create(object_path)?;
+
+        let mut user_file = File::open(file)?;
+
+        let mut encoder = flate2::write::ZlibEncoder::new(&mut object_file, Compression::default());
+
+        encoder.write(header.as_bytes())?;
+
+        let write_file_size = io::copy(&mut user_file, &mut encoder)?;
+        assert_eq!(
+            read_file_size, write_file_size,
+            "read file size is different from write file size"
+        );
+
+        encoder.finish()?;
+    }
 
     Ok(())
 }
