@@ -25,6 +25,8 @@ enum Command {
         #[arg()]
         path: PathBuf,
     },
+    // WriteTree
+    // CommitTree
 }
 
 fn main() -> GitResult<()> {
