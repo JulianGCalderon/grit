@@ -2,13 +2,7 @@ use std::{
     env,
     fs::{create_dir_all, remove_dir_all, write, File},
     io::{self, stdout, BufRead, BufReader, Seek, Write},
-    os::{
-        linux::fs::MetadataExt as _,
-        unix::{
-            ffi::OsStrExt,
-            fs::{MetadataExt as _, PermissionsExt},
-        },
-    },
+    os::unix::{ffi::OsStrExt, fs::MetadataExt as _},
     path::Path,
 };
 
@@ -166,33 +160,16 @@ pub fn update_index(file: &Path) -> GitResult<()> {
     index_file.write_all("DIRC".as_bytes())?;
     index_file.write_all(&[0, 0, 0, 2])?;
     index_file.write_all(&[0, 0, 0, 1])?;
-    index_file.write_all(&(metadata.st_ctime() as i32).to_be_bytes())?;
-    index_file.write_all(&(metadata.st_ctime_nsec() as i32).to_be_bytes())?;
-    index_file.write_all(&(metadata.st_mtime() as i32).to_be_bytes())?;
-    index_file.write_all(&(metadata.st_mtime_nsec() as i32).to_be_bytes())?;
+    index_file.write_all(&(metadata.ctime() as i32).to_be_bytes())?;
+    index_file.write_all(&(metadata.ctime_nsec() as i32).to_be_bytes())?;
+    index_file.write_all(&(metadata.mtime() as i32).to_be_bytes())?;
+    index_file.write_all(&(metadata.mtime_nsec() as i32).to_be_bytes())?;
     index_file.write_all(&(metadata.dev() as u32).to_be_bytes())?;
     index_file.write_all(&(metadata.ino() as u32).to_be_bytes())?;
-
-    let object_type: u32 = if metadata.is_file() {
-        0b1000
-    } else if metadata.is_symlink() {
-        0b1010
-    } else {
-        panic!("unknown file type, should handle");
-    };
-    let permissions: u32 = if metadata.permissions().mode() & 0o111 != 0 {
-        0o755
-    } else {
-        0o644
-    };
-    let object_mode = (object_type << 12) + permissions;
-
-    index_file.write_all(&object_mode.to_be_bytes())?;
-
-    index_file.write_all(&(metadata.st_uid()).to_be_bytes())?;
-    index_file.write_all(&(metadata.st_gid()).to_be_bytes())?;
-
-    index_file.write_all(&(metadata.st_size() as u32).to_be_bytes())?;
+    index_file.write_all(&metadata.mode().to_be_bytes())?;
+    index_file.write_all(&(metadata.uid()).to_be_bytes())?;
+    index_file.write_all(&(metadata.gid()).to_be_bytes())?;
+    index_file.write_all(&(metadata.size() as u32).to_be_bytes())?;
 
     let mut object_file = File::open(file)?;
 
