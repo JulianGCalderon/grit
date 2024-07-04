@@ -189,6 +189,7 @@ dependencies = [
  "base16ct",
  "clap",
  "flate2",
+ "libc",
  "sha1",
  "thiserror",
 ]

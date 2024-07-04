@@ -25,7 +25,7 @@ enum Command {
         #[arg()]
         path: PathBuf,
     },
-    // WriteTree
+    WriteTree,
     // CommitTree
 }
 
@@ -37,6 +37,7 @@ fn main() -> GitResult<()> {
         Command::HashObject { path } => command::hash_object(&path)?,
         Command::CatFile { hash } => command::cat_file(&hash)?,
         Command::UpdateIndex { path } => command::update_index(&path)?,
+        Command::WriteTree => command::write_tree()?,
     }
 
     Ok(())

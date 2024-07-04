@@ -1,8 +1,8 @@
 use std::{
     env,
     fs::{create_dir_all, remove_dir_all, write, File},
-    io::{self, stdout, BufRead, BufReader, Seek, Write},
-    os::unix::{ffi::OsStrExt, fs::MetadataExt as _},
+    io::{self, stdout, BufRead as _, BufReader, Read as _, Seek as _, Write as _},
+    os::unix::{ffi::OsStrExt as _, fs::MetadataExt as _},
     path::Path,
 };
 
@@ -252,4 +252,106 @@ pub fn update_index(file: &Path) -> GitResult<()> {
     }
 
     Ok(())
+}
+
+pub fn write_tree() -> GitResult<()> {
+    let index_path = {
+        let git_dir = env::var(GIT_DIR_ENV);
+        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+        let git_dir = Path::new(git_dir);
+        git_dir.join("index")
+    };
+
+    let mut index_file = BufReader::new(File::open(index_path)?);
+
+    let mut index_header = vec![0; 12];
+    index_file.read_exact(&mut index_header)?;
+
+    let mut entry_header = vec![0; 24];
+    index_file.read_exact(&mut entry_header)?;
+    let mut entry_mode = vec![0; 4];
+    index_file.read_exact(&mut entry_mode)?;
+    let mut entry_header = vec![0; 12];
+    index_file.read_exact(&mut entry_header)?;
+    let mut entry_hash = vec![0; 20];
+    index_file.read_exact(&mut entry_hash)?;
+    let mut entry_flags = vec![0; 2];
+    index_file.read_exact(&mut entry_flags)?;
+    let mut entry_name = Vec::new();
+    let name_length = index_file.read_until(b'\0', &mut entry_name)?;
+    entry_name.pop();
+
+    let padding = 8 - (((name_length) + 12 + 2) % 8);
+    let mut padding_bytes = vec![0; padding];
+    index_file.read_exact(&mut padding_bytes)?;
+
+    let mut tree_entries = Vec::new();
+
+    let entry_mode = entry_mode.try_into().unwrap();
+    let entry_mode = u32::from_be_bytes(entry_mode);
+
+    let file_type_1 = mask_and_cast(entry_mode, 0o100000);
+    let file_type_2 = mask_and_cast(entry_mode, 0o070000);
+    let special = mask_and_cast(entry_mode, 0o7000);
+    let owner = mask_and_cast(entry_mode, 0o0700);
+    let group = mask_and_cast(entry_mode, 0o0070);
+    let others = mask_and_cast(entry_mode, 0o0007);
+
+    tree_entries.push(file_type_1);
+    tree_entries.push(file_type_2);
+    tree_entries.push(special);
+    tree_entries.push(owner);
+    tree_entries.push(group);
+    tree_entries.push(others);
+    tree_entries.push(b' ');
+    tree_entries.append(&mut entry_name);
+    tree_entries.push(b'\0');
+    tree_entries.append(&mut entry_hash);
+
+    let mut hasher = Sha1::new();
+
+    let file_size = tree_entries.len();
+    let header = format!("tree {file_size}\0");
+
+    hasher.update(&header);
+    hasher.update(&tree_entries);
+
+    let tree_hash = hasher.finalize();
+
+    let tree_hex_hash = base16ct::lower::encode_string(&tree_hash);
+    println!("{tree_hex_hash}");
+
+    let tree_path = {
+        let git_dir = env::var(GIT_DIR_ENV);
+        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+        let git_dir = Path::new(git_dir);
+        git_dir.join(format!(
+            "objects/{}/{}",
+            &tree_hex_hash[..2],
+            &tree_hex_hash[2..]
+        ))
+    };
+
+    if let Some(base) = tree_path.parent() {
+        create_dir_all(base)?;
+    };
+
+    let mut tree_file = File::create(tree_path)?;
+
+    let mut encoder = flate2::write::ZlibEncoder::new(&mut tree_file, Compression::default());
+
+    encoder.write_all(header.as_bytes())?;
+    encoder.write_all(&tree_entries)?;
+
+    Ok(())
+}
+
+/// masks the mode bits, discards trailing zeroes,
+/// and converts the result to a numerical character
+fn mask_and_cast(mode: u32, mask: u32) -> u8 {
+    let masked = mode & mask;
+
+    let shifted = masked >> mask.trailing_zeros();
+
+    shifted as u8 + b'0'
 }
