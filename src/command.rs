@@ -355,3 +355,68 @@ fn mask_and_cast(mode: u32, mask: u32) -> u8 {
 
     shifted as u8 + b'0'
 }
+
+pub fn commit_tree(hash: &str, message: Option<&str>) -> GitResult<()> {
+    let mut tree_entries = Vec::new();
+
+    tree_entries.write_all("tree ".as_bytes())?;
+    tree_entries.write_all(hash.as_bytes())?;
+    tree_entries.push(b'\n');
+    tree_entries.write_all("author author <author@mail.com> ".as_bytes())?;
+
+    let timestamp = chrono::Local::now();
+
+    tree_entries.write_all(timestamp.format("%s %z\n").to_string().as_bytes())?;
+    tree_entries.write_all("commiter commiter <commiter@mail.com> ".as_bytes())?;
+    tree_entries.write_all(timestamp.format("%s %z\n\n").to_string().as_bytes())?;
+
+    if let Some(message) = message {
+        tree_entries.write_all(message.as_bytes())?;
+        tree_entries.push(b'\n');
+    }
+
+    let mut hasher = Sha1::new();
+
+    let file_size = tree_entries.len();
+    let header = format!("commit {file_size}\0");
+
+    hasher.update(&header);
+    hasher.update(&tree_entries);
+
+    let hash = hasher.finalize();
+
+    let hex_hash = base16ct::lower::encode_string(&hash);
+
+    let commit_path = {
+        let git_dir = env::var(GIT_DIR_ENV);
+        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+        let git_dir = Path::new(git_dir);
+        git_dir.join(format!("objects/{}/{}", &hex_hash[..2], &hex_hash[2..]))
+    };
+
+    let parent = commit_path.parent();
+    if let Some(parent) = parent {
+        create_dir_all(parent)?;
+    }
+
+    let mut commit_file = File::create(commit_path)?;
+    let mut encoder = flate2::write::ZlibEncoder::new(&mut commit_file, Compression::default());
+    encoder.write_all(header.as_bytes())?;
+    encoder.write_all(&tree_entries)?;
+
+    let git_dir = env::var(GIT_DIR_ENV);
+    let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+    let git_dir = Path::new(git_dir);
+
+    let commit_path = git_dir.join(format!("refs/heads/main"));
+    let mut commit_file = File::create(&commit_path)?;
+    commit_file.write_all(hex_hash.as_bytes())?;
+    commit_file.write_all(&[b'\n'])?;
+
+    let head_path = git_dir.join("HEAD");
+    std::fs::write(head_path, "ref: refs/heads/main\n")?;
+
+    println!("{}", hex_hash);
+
+    Ok(())
+}

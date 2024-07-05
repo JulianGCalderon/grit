@@ -26,7 +26,12 @@ enum Command {
         path: PathBuf,
     },
     WriteTree,
-    // CommitTree
+    CommitTree {
+        #[arg()]
+        hash: String,
+        #[arg(short, long)]
+        message: Option<String>,
+    },
 }
 
 fn main() -> GitResult<()> {
@@ -38,6 +43,9 @@ fn main() -> GitResult<()> {
         Command::CatFile { hash } => command::cat_file(&hash)?,
         Command::UpdateIndex { path } => command::update_index(&path)?,
         Command::WriteTree => command::write_tree()?,
+        Command::CommitTree { hash, message } => {
+            command::commit_tree(&hash, message.as_ref().map(|a| a.as_ref()))?
+        }
     }
 
     Ok(())
