@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 base16ct = { version = "0.2.0", features = ["alloc"] }
+chrono = { version = "0.4.38", features = ["alloc", "clock"] }
 clap = { version = "4.5.4", features = ["derive"] }
 flate2 = "1.0.30"
 libc = "0.2"
