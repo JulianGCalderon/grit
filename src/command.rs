@@ -408,13 +408,10 @@ pub fn commit_tree(hash: &str, message: Option<&str>) -> GitResult<()> {
     let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
     let git_dir = Path::new(git_dir);
 
-    let commit_path = git_dir.join(format!("refs/heads/main"));
+    let commit_path = git_dir.join(format!("refs/heads/master"));
     let mut commit_file = File::create(&commit_path)?;
     commit_file.write_all(hex_hash.as_bytes())?;
     commit_file.write_all(&[b'\n'])?;
-
-    let head_path = git_dir.join("HEAD");
-    std::fs::write(head_path, "ref: refs/heads/main\n")?;
 
     println!("{}", hex_hash);
 
