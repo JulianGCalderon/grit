@@ -11,11 +11,12 @@ use crate::{command::GitResult, object::OId};
 const INDEX_SIGNATURE: &str = "DIRC";
 const INDEX_VERSION: u32 = 2;
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq)]
 pub struct Index {
     pub entries: Vec<IndexEntry>,
 }
 
+#[derive(PartialEq, Eq, Clone)]
 pub struct IndexEntry {
     pub ctime: i32,
     pub ctime_nsec: i32,
@@ -52,6 +53,9 @@ impl Index {
 
         writer.write_all(&(self.entries.len() as u32).to_be_bytes())?;
         hasher.write_all(&(self.entries.len() as u32).to_be_bytes())?;
+
+        let mut entries = self.entries.clone();
+        entries.sort();
 
         for entry in &self.entries {
             entry.serialize_to_writer(&mut writer)?;
@@ -113,5 +117,20 @@ impl IndexEntry {
 
     pub fn deserialize_from_reader<R: Read>(_reader: R) -> GitResult<()> {
         Ok(())
+    }
+}
+
+impl PartialOrd for IndexEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for IndexEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let stage_ordering = self.stage.cmp(&other.stage);
+        let name_ordering = self.name.cmp(&other.name);
+
+        name_ordering.then(stage_ordering)
     }
 }
