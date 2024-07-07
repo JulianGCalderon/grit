@@ -1,8 +1,8 @@
 use std::{
     env,
-    fs::{create_dir, create_dir_all, remove_dir_all, write, File},
-    io::{self, BufRead as _, BufReader, Read as _, Seek as _, Write},
-    os::unix::{ffi::OsStrExt as _, fs::MetadataExt as _},
+    fs::{self, create_dir, create_dir_all, remove_dir_all, write, File},
+    io::{self, BufRead as _, BufReader, Read as _, Write},
+    os::unix::fs::MetadataExt as _,
     path::{Path, PathBuf},
 };
 
@@ -10,7 +10,10 @@ use flate2::Compression;
 use sha1::{Digest, Sha1};
 use thiserror::Error;
 
-use crate::object::Blob;
+use crate::{
+    index::{Index, IndexEntry},
+    object::Blob,
+};
 
 const GIT_DIR: &str = ".grit";
 const GIT_DIR_ENV: &str = "GRIT_DIR";
@@ -69,18 +72,7 @@ pub fn init() -> GitResult<()> {
 }
 
 pub fn hash_object(file: &Path) -> GitResult<()> {
-    let git_dir = get_git_dir();
-
-    let blob = Blob::create(file)?;
-
-    let blob_id = blob.id();
-    let blob_path = git_dir.join(format!("objects/{}/{}", &blob_id[..2], &blob_id[2..]));
-
-    if let Some(base) = blob_path.parent() {
-        create_dir_all(base)?;
-    };
-
-    blob.save(blob_path)?;
+    let blob_id = blob(file)?;
 
     println!("{blob_id}");
 
@@ -100,116 +92,37 @@ pub fn cat_file(id: &str) -> GitResult<()> {
 }
 
 pub fn update_index(file: &Path) -> GitResult<()> {
-    let index_path = {
-        let git_dir = env::var(GIT_DIR_ENV);
-        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-        let git_dir = Path::new(git_dir);
-        git_dir.join("index")
+    let git_dir = get_git_dir();
+
+    let index_path = git_dir.join("index");
+    let mut index = Index::deserialize(&index_path).unwrap_or_default();
+
+    let blob_id = blob(file)?;
+
+    let entry = {
+        let metadata = fs::metadata(file)?;
+        let name = file.to_str().expect("filename is not utf8").to_string();
+        IndexEntry {
+            ctime: metadata.ctime() as i32,
+            ctime_nsec: metadata.ctime_nsec() as i32,
+            mtime: metadata.mtime() as i32,
+            mtime_nsec: metadata.mtime_nsec() as i32,
+            dev: metadata.dev() as u32,
+            ino: metadata.ino() as u32,
+            mode: metadata.mode() as u32,
+            uid: metadata.uid() as u32,
+            gid: metadata.gid() as u32,
+            size: metadata.size() as u32,
+            oid: blob_id,
+            assume_valid: false,
+            stage: 0,
+            name,
+        }
     };
 
-    let metadata = file.metadata()?;
+    index.entries.push(entry);
 
-    // todo: handle appending
-    let mut index_file = File::options()
-        .create(true)
-        .read(true)
-        .write(true)
-        .truncate(true)
-        .open(index_path)?;
-
-    index_file.write_all("DIRC".as_bytes())?;
-    index_file.write_all(&[0, 0, 0, 2])?;
-    index_file.write_all(&[0, 0, 0, 1])?;
-    index_file.write_all(&(metadata.ctime() as i32).to_be_bytes())?;
-    index_file.write_all(&(metadata.ctime_nsec() as i32).to_be_bytes())?;
-    index_file.write_all(&(metadata.mtime() as i32).to_be_bytes())?;
-    index_file.write_all(&(metadata.mtime_nsec() as i32).to_be_bytes())?;
-    index_file.write_all(&(metadata.dev() as u32).to_be_bytes())?;
-    index_file.write_all(&(metadata.ino() as u32).to_be_bytes())?;
-    index_file.write_all(&metadata.mode().to_be_bytes())?;
-    index_file.write_all(&(metadata.uid()).to_be_bytes())?;
-    index_file.write_all(&(metadata.gid()).to_be_bytes())?;
-    index_file.write_all(&(metadata.size() as u32).to_be_bytes())?;
-
-    let mut object_file = File::open(file)?;
-
-    let mut hasher = Sha1::new();
-
-    let file_size = object_file.metadata()?.len();
-    let header = format!("blob {file_size}\0");
-
-    hasher.update(&header);
-    let read_file_size = io::copy(&mut object_file, &mut hasher)?;
-
-    assert_eq!(
-        file_size, read_file_size,
-        "metadata file size is different from real file size"
-    );
-
-    let user_hash = hasher.finalize();
-
-    index_file.write_all(&user_hash)?;
-
-    // todo: canonicalize as relative
-    let canonicalized_name = file.as_os_str().as_bytes();
-
-    let assume_valid = 0 as u16;
-    let extended_flag = 0 as u16;
-    let stage = 0.min(0b11) as u16;
-    let name_length = canonicalized_name.len().min(0xFFF) as u16;
-
-    let flags = name_length + (stage << 12) + (extended_flag << 14) + (assume_valid << 15);
-
-    index_file.write_all(&flags.to_be_bytes())?;
-
-    index_file.write_all(canonicalized_name)?;
-
-    index_file.flush()?;
-    let size = (index_file.metadata()?.size() + 20) % 8;
-
-    let padding = vec![0; (8 - size) as usize];
-
-    index_file.write_all(&padding)?;
-
-    let mut hasher = Sha1::new();
-
-    index_file.flush()?;
-    index_file.seek(io::SeekFrom::Start(0))?;
-    let _read_file_size = io::copy(&mut index_file, &mut hasher)?;
-
-    let index_hash = hasher.finalize();
-
-    index_file.write_all(&index_hash)?;
-
-    {
-        let object_path = {
-            let git_dir = env::var(GIT_DIR_ENV);
-            let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-            let git_dir = Path::new(git_dir);
-            let hex_hash = base16ct::lower::encode_string(&user_hash);
-            git_dir.join(&format!("objects/{}/{}", &hex_hash[..2], &hex_hash[2..]))
-        };
-
-        if let Some(base) = object_path.parent() {
-            create_dir_all(base)?;
-        };
-
-        let mut object_file = File::create(object_path)?;
-
-        let mut user_file = File::open(file)?;
-
-        let mut encoder = flate2::write::ZlibEncoder::new(&mut object_file, Compression::default());
-
-        encoder.write(header.as_bytes())?;
-
-        let write_file_size = io::copy(&mut user_file, &mut encoder)?;
-        assert_eq!(
-            read_file_size, write_file_size,
-            "read file size is different from write file size"
-        );
-
-        encoder.finish()?;
-    }
+    index.serialize(index_path)?;
 
     Ok(())
 }
@@ -382,4 +295,17 @@ fn get_git_dir() -> PathBuf {
     let git_dir = env::var(GIT_DIR_ENV);
     let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
     PathBuf::from(git_dir)
+}
+
+fn blob(file: &Path) -> Result<String, GitError> {
+    let git_dir = get_git_dir();
+
+    let blob = Blob::create(file)?;
+    let blob_id = blob.id().clone();
+    let blob_path = git_dir.join(format!("objects/{}/{}", &blob_id[..2], &blob_id[2..]));
+    if let Some(base) = blob_path.parent() {
+        create_dir_all(base)?;
+    };
+    blob.save(blob_path)?;
+    Ok(blob_id)
 }
