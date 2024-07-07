@@ -14,3 +14,4 @@ thiserror = "1.0.61"
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["std_rng"] }
+pretty_assertions_sorted = "1.2.3"

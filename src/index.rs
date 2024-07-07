@@ -1,6 +1,6 @@
 use std::{
     fs::File,
-    io::{self, Read, Write},
+    io::{BufRead, BufReader, Write},
     path::Path,
 };
 
@@ -69,12 +69,28 @@ impl Index {
     }
 
     pub fn deserialize<P: AsRef<Path>>(path: P) -> GitResult<Self> {
-        let file = File::open(path)?;
+        let file = BufReader::new(File::open(path)?);
         Self::deserialize_from_reader(file)
     }
 
-    pub fn deserialize_from_reader<R: Read>(_reader: R) -> GitResult<Self> {
-        Err(io::Error::new(io::ErrorKind::Other, "not implemented"))?
+    pub fn deserialize_from_reader<R: BufRead>(mut reader: R) -> GitResult<Self> {
+        let mut signature_bytes = [0; 4];
+        reader.read_exact(&mut signature_bytes)?;
+        let mut version_bytes = [0; 4];
+        reader.read_exact(&mut version_bytes)?;
+        let mut length_bytes = [0; 4];
+        reader.read_exact(&mut length_bytes)?;
+
+        let length = u32::from_be_bytes(length_bytes);
+
+        let mut entries = Vec::with_capacity(length as usize);
+
+        for _ in 0..length {
+            let entry = IndexEntry::deserialize_from_reader(&mut reader)?;
+            entries.push(entry);
+        }
+
+        Ok(Index { entries })
     }
 }
 
@@ -115,8 +131,85 @@ impl IndexEntry {
         Ok(())
     }
 
-    pub fn deserialize_from_reader<R: Read>(_reader: R) -> GitResult<()> {
-        Ok(())
+    pub fn deserialize_from_reader<R: BufRead>(mut reader: R) -> GitResult<Self> {
+        let mut ctime_bytes = [0; 4];
+        reader.read_exact(&mut ctime_bytes)?;
+        let ctime = i32::from_be_bytes(ctime_bytes);
+
+        let mut ctime_nsec_bytes = [0; 4];
+        reader.read_exact(&mut ctime_nsec_bytes)?;
+        let ctime_nsec = i32::from_be_bytes(ctime_nsec_bytes);
+
+        let mut mtime_bytes = [0; 4];
+        reader.read_exact(&mut mtime_bytes)?;
+        let mtime = i32::from_be_bytes(mtime_bytes);
+
+        let mut mtime_nsec_bytes = [0; 4];
+        reader.read_exact(&mut mtime_nsec_bytes)?;
+        let mtime_nsec = i32::from_be_bytes(mtime_nsec_bytes);
+
+        let mut dev_bytes = [0; 4];
+        reader.read_exact(&mut dev_bytes)?;
+        let dev = u32::from_be_bytes(dev_bytes);
+
+        let mut ino_bytes = [0; 4];
+        reader.read_exact(&mut ino_bytes)?;
+        let ino = u32::from_be_bytes(ino_bytes);
+
+        let mut mode_bytes = [0; 4];
+        reader.read_exact(&mut mode_bytes)?;
+        let mode = u32::from_be_bytes(mode_bytes);
+
+        let mut uid_bytes = [0; 4];
+        reader.read_exact(&mut uid_bytes)?;
+        let uid = u32::from_be_bytes(uid_bytes);
+
+        let mut gid_bytes = [0; 4];
+        reader.read_exact(&mut gid_bytes)?;
+        let gid = u32::from_be_bytes(gid_bytes);
+
+        let mut size_bytes = [0; 4];
+        reader.read_exact(&mut size_bytes)?;
+        let size = u32::from_be_bytes(size_bytes);
+
+        let mut oid_bytes = vec![0; 20];
+        reader.read_exact(&mut oid_bytes)?;
+        let oid = base16ct::lower::encode_string(&oid_bytes);
+
+        let mut flags_bytes = vec![0; 2];
+        reader.read_exact(&mut flags_bytes)?;
+
+        let mut name_bytes = Vec::new();
+        reader.read_until(b'\0', &mut name_bytes)?;
+        // the null terminator is read, so we remove it and take it into account when reading padding
+        name_bytes.pop();
+        let name = String::from_utf8(name_bytes).unwrap_or_default();
+
+        // entry size must be multiple of 8
+        // - first 10 fields occupy 4 bytes each: offset = 0
+        // - hash always occupies 20 bytes: offset = 4
+        // - flags occupy 2 bytes: offset = 2
+        // - name is variable length: offset = ?
+        let offset = (4 + 2 + name.len()) % 8;
+        let mut padding_bytes = vec![0; (7 - offset) as usize];
+        reader.read_exact(&mut padding_bytes)?;
+
+        Ok(IndexEntry {
+            ctime,
+            ctime_nsec,
+            mtime,
+            mtime_nsec,
+            dev,
+            ino,
+            mode,
+            uid,
+            gid,
+            size,
+            oid,
+            assume_valid: false,
+            stage: 0,
+            name,
+        })
     }
 }
 
@@ -139,6 +232,8 @@ impl Ord for IndexEntry {
 mod tests {
     use super::*;
     use std::io::Cursor;
+
+    use pretty_assertions_sorted::assert_eq;
 
     #[test]
     pub fn index_integration() {
