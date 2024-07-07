@@ -28,6 +28,7 @@ pub struct IndexEntry {
     pub mtime_nsec: i32,
     pub dev: u32,
     pub ino: u32,
+    // a subset of mode is allowed
     pub mode: u32,
     pub uid: u32,
     pub gid: u32,
@@ -35,8 +36,8 @@ pub struct IndexEntry {
     pub oid: Oid,
     // flags
     pub assume_valid: bool,
-    pub stage: u8,
-    //
+    pub stage: u8, // the real type is u2
+    // should be canonicalized
     pub name: String,
 }
 
