@@ -38,12 +38,12 @@ pub struct IndexEntry {
 }
 
 impl Index {
-    pub fn serialize<P: AsRef<Path>>(&self, path: P) -> GitResult<()> {
+    pub fn serialize_to_path<P: AsRef<Path>>(&self, path: P) -> GitResult<()> {
         let file = File::create(path)?;
-        self.serialize_to_writer(file)
+        self.serialize(file)
     }
 
-    pub fn serialize_to_writer<W: Write>(&self, mut writer: W) -> GitResult<()> {
+    pub fn serialize<W: Write>(&self, mut writer: W) -> GitResult<()> {
         let mut hasher = Sha1::new();
 
         writer.write_all(INDEX_SIGNATURE.as_bytes())?;
@@ -59,8 +59,8 @@ impl Index {
         entries.sort();
 
         for entry in entries {
-            entry.serialize_to_writer(&mut writer)?;
-            entry.serialize_to_writer(&mut hasher)?;
+            entry.serialize(&mut writer)?;
+            entry.serialize(&mut hasher)?;
         }
 
         let hash = hasher.finalize();
@@ -69,12 +69,12 @@ impl Index {
         Ok(())
     }
 
-    pub fn deserialize<P: AsRef<Path>>(path: P) -> GitResult<Self> {
+    pub fn deserialize_from_path<P: AsRef<Path>>(path: P) -> GitResult<Self> {
         let file = BufReader::new(File::open(path)?);
-        Self::deserialize_from_reader(file)
+        Self::deserialize(file)
     }
 
-    pub fn deserialize_from_reader<R: BufRead>(mut reader: R) -> GitResult<Self> {
+    pub fn deserialize<R: BufRead>(mut reader: R) -> GitResult<Self> {
         let mut signature_bytes = [0; 4];
         reader.read_exact(&mut signature_bytes)?;
         let mut version_bytes = [0; 4];
@@ -87,7 +87,7 @@ impl Index {
         let mut entries = HashMap::with_capacity(length as usize);
 
         for _ in 0..length {
-            let entry = IndexEntry::deserialize_from_reader(&mut reader)?;
+            let entry = IndexEntry::deserialize(&mut reader)?;
             let oid = entry.oid.clone();
             entries.insert(oid, entry);
         }
@@ -97,7 +97,7 @@ impl Index {
 }
 
 impl IndexEntry {
-    pub fn serialize_to_writer<W: Write>(&self, mut writer: W) -> GitResult<()> {
+    pub fn serialize<W: Write>(&self, mut writer: W) -> GitResult<()> {
         writer.write_all(&self.ctime.to_be_bytes())?;
         writer.write_all(&self.ctime_nsec.to_be_bytes())?;
         writer.write_all(&self.mtime.to_be_bytes())?;
@@ -132,7 +132,7 @@ impl IndexEntry {
         Ok(())
     }
 
-    pub fn deserialize_from_reader<R: BufRead>(mut reader: R) -> GitResult<Self> {
+    pub fn deserialize<R: BufRead>(mut reader: R) -> GitResult<Self> {
         let mut ctime_bytes = [0; 4];
         reader.read_exact(&mut ctime_bytes)?;
         let ctime = i32::from_be_bytes(ctime_bytes);
@@ -297,10 +297,10 @@ mod tests {
         };
 
         let mut serialized = Vec::new();
-        index.serialize_to_writer(&mut serialized).unwrap();
+        index.serialize(&mut serialized).unwrap();
 
         let serialized_cursor = Cursor::new(serialized);
-        let deserialized = Index::deserialize_from_reader(serialized_cursor).unwrap();
+        let deserialized = Index::deserialize(serialized_cursor).unwrap();
 
         assert_eq!(index, deserialized);
     }

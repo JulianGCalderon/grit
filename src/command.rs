@@ -83,7 +83,7 @@ pub fn update_index(file: &Path) -> GitResult<()> {
     let git_dir = get_git_dir();
 
     let index_path = git_dir.join("index");
-    let mut index = Index::deserialize(&index_path).unwrap_or_default();
+    let mut index = Index::deserialize_from_path(&index_path).unwrap_or_default();
 
     let blob_id = blob(file)?;
 
@@ -110,7 +110,7 @@ pub fn update_index(file: &Path) -> GitResult<()> {
 
     index.entries.insert(blob_id, entry);
 
-    index.serialize(index_path)?;
+    index.serialize_to_path(index_path)?;
 
     Ok(())
 }
