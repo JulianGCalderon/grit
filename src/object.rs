@@ -8,18 +8,20 @@ use flate2::{
 };
 use sha1::{Digest, Sha1};
 
-use crate::repository::GitResult;
+use crate::repository::{GitError, GitResult};
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Oid(String);
 
 impl Oid {
-    pub fn new(hex_id: impl Into<String>) -> Option<Self> {
-        let hex_id = hex_id.into();
-        if base16ct::decoded_len(hex_id.as_bytes()).unwrap() != 20 {
-            None
+    pub fn new(id: impl Into<String>) -> GitResult<Self> {
+        let hex_id = id.into();
+        let decoded_len =
+            base16ct::decoded_len(hex_id.as_bytes()).map_err(|_| GitError::InvalidOid)?;
+        if decoded_len != 20 {
+            Err(GitError::InvalidOid)
         } else {
-            Some(Self(hex_id))
+            Ok(Self(hex_id))
         }
     }
 

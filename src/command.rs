@@ -68,7 +68,7 @@ pub fn hash_object(file: &Path) -> GitResult<()> {
 }
 
 pub fn cat_file(id: &str) -> GitResult<()> {
-    let oid = Oid::new(id).unwrap();
+    let oid = Oid::new(id)?;
 
     let git_dir = get_git_dir();
     let blob_path = get_object_path(&git_dir, &oid);

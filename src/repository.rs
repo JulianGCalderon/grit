@@ -13,6 +13,9 @@ use crate::object::{Blob, Oid};
 pub enum GitError {
     #[error(transparent)]
     IO(#[from] io::Error),
+
+    #[error("invalid object id")]
+    InvalidOid,
 }
 
 pub type GitResult<T> = Result<T, GitError>;
