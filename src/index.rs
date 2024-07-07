@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::File,
     io::{BufRead, BufReader, Write},
     path::Path,
@@ -13,7 +14,7 @@ const INDEX_VERSION: u32 = 2;
 
 #[derive(Default, PartialEq, Eq, Debug)]
 pub struct Index {
-    pub entries: Vec<IndexEntry>,
+    pub entries: HashMap<OId, IndexEntry>,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -54,10 +55,10 @@ impl Index {
         writer.write_all(&(self.entries.len() as u32).to_be_bytes())?;
         hasher.write_all(&(self.entries.len() as u32).to_be_bytes())?;
 
-        let mut entries = self.entries.clone();
+        let mut entries: Vec<IndexEntry> = self.entries.clone().into_values().collect();
         entries.sort();
 
-        for entry in &self.entries {
+        for entry in entries {
             entry.serialize_to_writer(&mut writer)?;
             entry.serialize_to_writer(&mut hasher)?;
         }
@@ -83,11 +84,12 @@ impl Index {
 
         let length = u32::from_be_bytes(length_bytes);
 
-        let mut entries = Vec::with_capacity(length as usize);
+        let mut entries = HashMap::with_capacity(length as usize);
 
         for _ in 0..length {
             let entry = IndexEntry::deserialize_from_reader(&mut reader)?;
-            entries.push(entry);
+            let oid = entry.oid.clone();
+            entries.insert(oid, entry);
         }
 
         Ok(Index { entries })
@@ -237,57 +239,61 @@ mod tests {
 
     #[test]
     pub fn index_integration() {
+        let entries = vec![
+            IndexEntry {
+                ctime: 1234,
+                ctime_nsec: 1234,
+                mtime: 1234,
+                mtime_nsec: 1234,
+                dev: 1234,
+                ino: 1234,
+                mode: 1234,
+                uid: 1234,
+                gid: 1234,
+                size: 1234,
+                oid: "f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc".to_string(),
+                assume_valid: false,
+                stage: 0,
+                name: "name1".to_string(),
+            },
+            IndexEntry {
+                ctime: 4321,
+                ctime_nsec: 4321,
+                mtime: 4321,
+                mtime_nsec: 4321,
+                dev: 4321,
+                ino: 4321,
+                mode: 4321,
+                uid: 4321,
+                gid: 4321,
+                size: 4321,
+                oid: "554b0c91f951764bb11f1db849685d95b2c7a48f".to_string(),
+                assume_valid: false,
+                stage: 0,
+                name: "name2".to_string(),
+            },
+            IndexEntry {
+                ctime: 5678,
+                ctime_nsec: 5678,
+                mtime: 5678,
+                mtime_nsec: 5678,
+                dev: 5678,
+                ino: 5678,
+                mode: 5678,
+                uid: 5678,
+                gid: 5678,
+                size: 5678,
+                oid: "bedc28ca5099946b354104a3c6cc90ec20dbcaec".to_string(),
+                assume_valid: false,
+                stage: 0,
+                name: "name3".to_string(),
+            },
+        ];
         let index = Index {
-            entries: vec![
-                IndexEntry {
-                    ctime: 1234,
-                    ctime_nsec: 1234,
-                    mtime: 1234,
-                    mtime_nsec: 1234,
-                    dev: 1234,
-                    ino: 1234,
-                    mode: 1234,
-                    uid: 1234,
-                    gid: 1234,
-                    size: 1234,
-                    oid: "f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc".to_string(),
-                    assume_valid: false,
-                    stage: 0,
-                    name: "name1".to_string(),
-                },
-                IndexEntry {
-                    ctime: 4321,
-                    ctime_nsec: 4321,
-                    mtime: 4321,
-                    mtime_nsec: 4321,
-                    dev: 4321,
-                    ino: 4321,
-                    mode: 4321,
-                    uid: 4321,
-                    gid: 4321,
-                    size: 4321,
-                    oid: "554b0c91f951764bb11f1db849685d95b2c7a48f".to_string(),
-                    assume_valid: false,
-                    stage: 0,
-                    name: "name2".to_string(),
-                },
-                IndexEntry {
-                    ctime: 5678,
-                    ctime_nsec: 5678,
-                    mtime: 5678,
-                    mtime_nsec: 5678,
-                    dev: 5678,
-                    ino: 5678,
-                    mode: 5678,
-                    uid: 5678,
-                    gid: 5678,
-                    size: 5678,
-                    oid: "bedc28ca5099946b354104a3c6cc90ec20dbcaec".to_string(),
-                    assume_valid: false,
-                    stage: 0,
-                    name: "name3".to_string(),
-                },
-            ],
+            entries: entries
+                .into_iter()
+                .map(|entry| (entry.oid.clone(), entry))
+                .collect(),
         };
 
         let mut serialized = Vec::new();

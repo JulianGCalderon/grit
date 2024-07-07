@@ -113,14 +113,14 @@ pub fn update_index(file: &Path) -> GitResult<()> {
             uid: metadata.uid() as u32,
             gid: metadata.gid() as u32,
             size: metadata.size() as u32,
-            oid: blob_id,
+            oid: blob_id.clone(),
             assume_valid: false,
             stage: 0,
             name,
         }
     };
 
-    index.entries.push(entry);
+    index.entries.insert(blob_id, entry);
 
     index.serialize(index_path)?;
 
