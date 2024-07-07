@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{BufRead, BufReader, Read, Write},
-    path::Path,
-};
+use std::io::{self, BufRead, BufReader, Read, Write};
 
 use flate2::{
     read::ZlibDecoder as ZlibReadDecoder, write::ZlibEncoder as ZlibWriteEncoder, Compression,
@@ -11,116 +7,66 @@ use sha1::{Digest, Sha1};
 
 use crate::repository::GitResult;
 
-pub type OId = String;
+pub type Oid = [u8; 20];
 
-pub struct Blob {
-    content: Vec<u8>,
-    id: OId,
-}
+pub struct Blob;
 
 impl Blob {
-    pub fn create<P: AsRef<Path>>(path: P) -> GitResult<Self> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
+    pub fn hash<R: Read>(mut plain: R, length: usize) -> GitResult<Oid> {
+        let mut hasher = Sha1::new();
+        let header = Self::header(length);
 
-        Self::create_from_reader(reader)
+        hasher.update(&header);
+        io::copy(&mut plain, &mut hasher)?;
+
+        Ok(hasher.finalize().into())
     }
 
-    pub fn create_from_reader<R: Read>(mut reader: R) -> GitResult<Self> {
-        let mut content = Vec::new();
-        reader.read_to_end(&mut content)?;
-
-        let id = Self::calculate_hash(&content);
-
-        Ok(Self { content, id })
-    }
-
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> GitResult<()> {
-        let file = File::create(path)?;
-        self.save_to_writer(file)
-    }
-
-    pub fn save_to_writer<W: Write>(&self, writer: W) -> GitResult<()> {
-        let mut encoder = ZlibWriteEncoder::new(writer, Compression::default());
-        encoder.write_all(&Self::create_header(self.size()))?;
-        encoder.write_all(&self.content)?;
+    pub fn serialize<R: Read, W: Write>(mut src: R, dst: W, length: usize) -> GitResult<()> {
+        let mut encoder = ZlibWriteEncoder::new(dst, Compression::default());
+        encoder.write_all(&Self::header(length))?;
+        io::copy(&mut src, &mut encoder)?;
 
         Ok(())
     }
 
-    pub fn read<P: AsRef<Path>>(path: P) -> GitResult<Self> {
-        let file = File::open(path)?;
-        Self::read_from_reader(file)
-    }
-
-    pub fn read_from_reader<R: Read>(reader: R) -> GitResult<Self> {
-        let mut decoder = BufReader::new(ZlibReadDecoder::new(reader));
+    pub fn deserialize<R: Read, W: Write>(src: R, mut dst: W) -> GitResult<()> {
+        let mut decoder = BufReader::new(ZlibReadDecoder::new(src));
 
         let mut object_header = Vec::new();
         decoder.read_until(0, &mut object_header)?;
 
-        let mut content = Vec::new();
-        decoder.read_to_end(&mut content)?;
+        io::copy(&mut decoder, &mut dst)?;
 
-        let id = Self::calculate_hash(&content);
-
-        Ok(Self { content, id })
+        Ok(())
     }
 
-    pub fn id(&self) -> &OId {
-        &self.id
-    }
-
-    pub fn size(&self) -> usize {
-        self.content.len()
-    }
-
-    pub fn content(&self) -> &[u8] {
-        &self.content
-    }
-
-    fn create_header(size: usize) -> Vec<u8> {
+    pub fn header(size: usize) -> Vec<u8> {
         format!("blob {size}\0").bytes().collect()
-    }
-
-    fn calculate_hash(content: &[u8]) -> String {
-        let mut hasher = Sha1::new();
-        let header = Self::create_header(content.len());
-        hasher.update(&header);
-        hasher.update(&content);
-        base16ct::lower::encode_string(&hasher.finalize())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use rand::{RngCore, SeedableRng};
 
     use super::*;
 
     #[test]
     pub fn blob_fuzzy_integration() {
-        let mut content = vec![0; 100];
+        let mut original = vec![0; 100];
         let mut rng_core = rand::rngs::StdRng::seed_from_u64(0);
 
         for _ in 0..100 {
-            rng_core.fill_bytes(&mut content);
+            rng_core.fill_bytes(&mut original);
 
-            let reader = Cursor::new(&content);
+            let mut serialized = Vec::with_capacity(original.len());
+            Blob::serialize(original.as_slice(), &mut serialized, original.len()).unwrap();
 
-            let created = Blob::create_from_reader(reader).unwrap();
+            let mut deserialized = Vec::with_capacity(original.len());
+            Blob::deserialize(serialized.as_slice(), &mut deserialized).unwrap();
 
-            let mut saved = Vec::new();
-            created.save_to_writer(&mut saved).unwrap();
-
-            let saved_cursor = Cursor::new(&saved);
-            let read = Blob::read_from_reader(saved_cursor).unwrap();
-
-            let final_content = read.content;
-
-            assert_eq!(content, final_content);
+            assert_eq!(original, deserialized);
         }
     }
 }

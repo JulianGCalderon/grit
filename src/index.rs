@@ -7,14 +7,14 @@ use std::{
 
 use sha1::{Digest, Sha1};
 
-use crate::{object::OId, repository::GitResult};
+use crate::{object::Oid, repository::GitResult};
 
 const INDEX_SIGNATURE: &str = "DIRC";
 const INDEX_VERSION: u32 = 2;
 
 #[derive(Default, PartialEq, Eq, Debug)]
 pub struct Index {
-    pub entries: HashMap<OId, IndexEntry>,
+    pub entries: HashMap<Oid, IndexEntry>,
 }
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -29,7 +29,7 @@ pub struct IndexEntry {
     pub uid: u32,
     pub gid: u32,
     pub size: u32,
-    pub oid: OId,
+    pub oid: Oid,
     // flags
     pub assume_valid: bool,
     pub stage: u8,
@@ -109,8 +109,7 @@ impl IndexEntry {
         writer.write_all(&self.gid.to_be_bytes())?;
         writer.write_all(&self.size.to_be_bytes())?;
 
-        let hash = base16ct::lower::decode_vec(&self.oid).expect("oid should be always lower hexa");
-        writer.write_all(&hash)?;
+        writer.write_all(&self.oid)?;
 
         let assume_valid_bit = (self.assume_valid as u16) << 15;
         let extended_flag_bit = 0 << 14;
@@ -174,9 +173,8 @@ impl IndexEntry {
         reader.read_exact(&mut size_bytes)?;
         let size = u32::from_be_bytes(size_bytes);
 
-        let mut oid_bytes = vec![0; 20];
-        reader.read_exact(&mut oid_bytes)?;
-        let oid = base16ct::lower::encode_string(&oid_bytes);
+        let mut oid = [0; 20];
+        reader.read_exact(&mut oid)?;
 
         let mut flags_bytes = vec![0; 2];
         reader.read_exact(&mut flags_bytes)?;

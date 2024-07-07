@@ -1,13 +1,13 @@
 use std::{
     env,
-    fs::create_dir_all,
-    io,
+    fs::{create_dir_all, File},
+    io::{self, Seek},
     path::{Path, PathBuf},
 };
 
 use thiserror::Error;
 
-use crate::object::Blob;
+use crate::object::{Blob, Oid};
 
 #[derive(Error, Debug)]
 pub enum GitError {
@@ -26,15 +26,28 @@ pub fn get_git_dir() -> PathBuf {
     PathBuf::from(git_dir)
 }
 
-pub fn blob(file: &Path) -> GitResult<String> {
+pub fn blob(path: &Path) -> GitResult<Oid> {
     let git_dir = get_git_dir();
 
-    let blob = Blob::create(file)?;
-    let blob_id = blob.id().clone();
-    let blob_path = git_dir.join(format!("objects/{}/{}", &blob_id[..2], &blob_id[2..]));
+    let mut file = File::open(path)?;
+    let length = file.metadata()?.len() as usize;
+
+    let blob_id = Blob::hash(&mut file, length)?;
+
+    let blob_hex_id = base16ct::lower::encode_string(&blob_id);
+    let blob_path = git_dir.join(format!(
+        "objects/{}/{}",
+        &blob_hex_id[..2],
+        &blob_hex_id[2..]
+    ));
     if let Some(base) = blob_path.parent() {
         create_dir_all(base)?;
     };
-    blob.save(blob_path)?;
+    let blob_file = File::create(blob_path)?;
+
+    file.seek(io::SeekFrom::Start(0))?;
+
+    Blob::serialize(file, blob_file, length)?;
+
     Ok(blob_id)
 }

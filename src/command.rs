@@ -61,8 +61,9 @@ pub fn init() -> GitResult<()> {
 
 pub fn hash_object(file: &Path) -> GitResult<()> {
     let blob_id = blob(file)?;
+    let blob_hex_id = base16ct::lower::encode_string(&blob_id);
 
-    println!("{blob_id}");
+    println!("{blob_hex_id}");
 
     Ok(())
 }
@@ -71,10 +72,9 @@ pub fn cat_file(id: &str) -> GitResult<()> {
     let git_dir = get_git_dir();
 
     let blob_path = git_dir.join(&format!("objects/{}/{}", &id[..2], &id[2..]));
+    let blob_file = File::open(blob_path)?;
 
-    let blob = Blob::read(blob_path)?;
-
-    io::stdout().write_all(&blob.content())?;
+    Blob::deserialize(blob_file, io::stdout())?;
 
     Ok(())
 }
