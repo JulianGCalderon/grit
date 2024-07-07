@@ -192,6 +192,7 @@ impl IndexEntry {
         // - flags occupy 2 bytes: offset = 2
         // - name is variable length: offset = ?
         let offset = (4 + 2 + name.len()) % 8;
+        // we use 7 instead of 8 as we already read the string null terminator
         let mut padding_bytes = vec![0; (7 - offset) as usize];
         reader.read_exact(&mut padding_bytes)?;
 
