@@ -1,14 +1,16 @@
 use std::{
     env,
-    fs::{create_dir_all, remove_dir_all, write, File},
-    io::{self, stdout, BufRead as _, BufReader, Read as _, Seek as _, Write as _},
+    fs::{create_dir, create_dir_all, remove_dir_all, write, File},
+    io::{self, BufRead as _, BufReader, Read as _, Seek as _, Write},
     os::unix::{ffi::OsStrExt as _, fs::MetadataExt as _},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use flate2::Compression;
 use sha1::{Digest, Sha1};
 use thiserror::Error;
+
+use crate::object::Blob;
 
 const GIT_DIR: &str = ".grit";
 const GIT_DIR_ENV: &str = "GRIT_DIR";
@@ -22,9 +24,7 @@ pub enum GitError {
 pub type GitResult<T> = Result<T, GitError>;
 
 pub fn init() -> GitResult<()> {
-    let git_dir = env::var(GIT_DIR_ENV);
-    let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-    let git_dir = Path::new(git_dir);
+    let git_dir = get_git_dir();
 
     let _ = remove_dir_all(&git_dir);
     create_dir_all(&git_dir)?;
@@ -49,92 +49,52 @@ pub fn init() -> GitResult<()> {
     let branches = git_dir.join("branches");
     let hooks = git_dir.join("hooks");
     let info = git_dir.join("info");
-    create_dir_all(branches)?;
-    create_dir_all(hooks)?;
-    create_dir_all(info)?;
+    create_dir(branches)?;
+    create_dir(hooks)?;
+    create_dir(info)?;
 
     let objects = git_dir.join("objects");
     let objects_info = objects.join("objects_info");
     let objects_pack = objects.join("objects_pack");
     create_dir_all(objects_info)?;
-    create_dir_all(objects_pack)?;
+    create_dir(objects_pack)?;
 
     let refs = git_dir.join("refs");
     let refs_heads = refs.join("heads");
     let refs_tags = refs.join("tags");
     create_dir_all(refs_heads)?;
-    create_dir_all(refs_tags)?;
+    create_dir(refs_tags)?;
 
     Ok(())
 }
 
 pub fn hash_object(file: &Path) -> GitResult<()> {
-    let mut file = File::open(file)?;
+    let git_dir = get_git_dir();
 
-    let mut hasher = Sha1::new();
+    let blob = Blob::create(file)?;
 
-    let file_size = file.metadata()?.len();
-    let header = format!("blob {file_size}\0");
+    let blob_id = blob.id();
+    let blob_path = git_dir.join(format!("objects/{}/{}", &blob_id[..2], &blob_id[2..]));
 
-    hasher.update(&header);
-    let read_file_size = io::copy(&mut file, &mut hasher)?;
-
-    assert_eq!(
-        file_size, read_file_size,
-        "metadata file size is different from real file size"
-    );
-
-    let hash = hasher.finalize();
-
-    let hex_hash = base16ct::lower::encode_string(&hash);
-    println!("{hex_hash}");
-
-    let object_path = {
-        let git_dir = env::var(GIT_DIR_ENV);
-        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-        let git_dir = Path::new(git_dir);
-        git_dir.join(&format!("objects/{}/{}", &hex_hash[..2], &hex_hash[2..]))
-    };
-
-    if let Some(base) = object_path.parent() {
+    if let Some(base) = blob_path.parent() {
         create_dir_all(base)?;
     };
 
-    let mut object_file = File::create(object_path)?;
+    blob.save(blob_path)?;
 
-    let mut encoder = flate2::write::ZlibEncoder::new(&mut object_file, Compression::default());
-
-    encoder.write(header.as_bytes())?;
-
-    file.seek(io::SeekFrom::Start(0))?;
-    let write_file_size = io::copy(&mut file, &mut encoder)?;
-    assert_eq!(
-        read_file_size, write_file_size,
-        "read file size is different from write file size"
-    );
-
-    encoder.finish()?;
+    println!("{blob_id}");
 
     Ok(())
 }
 
-pub fn cat_file(hash: &str) -> GitResult<()> {
-    let object_path = {
-        let git_dir = env::var(GIT_DIR_ENV);
-        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-        let git_dir = Path::new(git_dir);
-        git_dir.join(&format!("objects/{}/{}", &hash[..2], &hash[2..]))
-    };
+pub fn cat_file(id: &str) -> GitResult<()> {
+    let git_dir = get_git_dir();
 
-    let object_file = File::open(object_path)?;
+    let blob_path = git_dir.join(&format!("objects/{}/{}", &id[..2], &id[2..]));
 
-    let mut decoder = BufReader::new(flate2::read::ZlibDecoder::new(&object_file));
+    let blob = Blob::read(blob_path)?;
 
-    let mut object_header = Vec::new();
-    let _ = decoder.read_until(0, &mut object_header)?;
-    // todo: handle object header
-
-    io::copy(&mut decoder, &mut stdout())?;
+    io::stdout().write_all(&blob.content())?;
 
     Ok(())
 }
@@ -416,4 +376,10 @@ pub fn commit_tree(hash: &str, message: Option<&str>) -> GitResult<()> {
     println!("{}", hex_hash);
 
     Ok(())
+}
+
+fn get_git_dir() -> PathBuf {
+    let git_dir = env::var(GIT_DIR_ENV);
+    let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
+    PathBuf::from(git_dir)
 }
