@@ -1,6 +1,7 @@
 use std::{
     fmt::Display,
     io::{self, BufRead, BufReader, Read, Write},
+    ops::Deref,
 };
 
 use flate2::{
@@ -35,6 +36,20 @@ impl Oid {
     pub fn from_raw_bytes(raw_bytes: [u8; OID_HEX_LEN]) -> Self {
         let hex_id = base16ct::lower::encode_string(&raw_bytes);
         Self(hex_id)
+    }
+}
+
+impl AsRef<str> for Oid {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl Deref for Oid {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        self.as_ref()
     }
 }
 

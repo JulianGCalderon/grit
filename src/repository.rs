@@ -30,8 +30,7 @@ pub fn get_git_dir() -> PathBuf {
 }
 
 pub fn get_object_path(git_dir: &Path, oid: &Oid) -> PathBuf {
-    let oid_string = oid.to_string();
-    git_dir.join(format!("objects/{}/{}", &oid_string[..2], &oid_string[2..]))
+    git_dir.join(format!("objects/{}/{}", &oid[..2], &oid[2..]))
 }
 
 pub fn blob(path: &Path) -> GitResult<Oid> {
