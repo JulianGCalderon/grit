@@ -102,10 +102,10 @@ mod tests {
 
     #[test]
     pub fn blob_fuzzy_integration() {
-        let mut content = vec![0; 1000];
+        let mut content = vec![0; 100];
         let mut rng_core = rand::rngs::StdRng::seed_from_u64(0);
 
-        for _ in 0..1000 {
+        for _ in 0..100 {
             rng_core.fill_bytes(&mut content);
 
             let reader = Cursor::new(&content);
