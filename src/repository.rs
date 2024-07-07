@@ -23,6 +23,8 @@ pub type GitResult<T> = Result<T, GitError>;
 const GIT_DIR: &str = ".grit";
 const GIT_DIR_ENV: &str = "GRIT_DIR";
 
+const OBJECT_PREFIX_LENGTH: usize = 2;
+
 pub fn get_git_dir() -> PathBuf {
     let git_dir = env::var(GIT_DIR_ENV);
     let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
@@ -30,7 +32,11 @@ pub fn get_git_dir() -> PathBuf {
 }
 
 pub fn get_object_path(git_dir: &Path, oid: &Oid) -> PathBuf {
-    git_dir.join(format!("objects/{}/{}", &oid[..2], &oid[2..]))
+    git_dir.join(format!(
+        "objects/{}/{}",
+        &oid[..OBJECT_PREFIX_LENGTH],
+        &oid[OBJECT_PREFIX_LENGTH..]
+    ))
 }
 
 pub fn blob(path: &Path) -> GitResult<Oid> {
