@@ -180,8 +180,15 @@ impl IndexEntry {
         reader.read_exact(&mut oid_bytes)?;
         let oid = Oid::from_raw_bytes(oid_bytes);
 
-        let mut flags_bytes = vec![0; 2];
+        let mut flags_bytes = [0; 2];
         reader.read_exact(&mut flags_bytes)?;
+        let flags = u16::from_be_bytes(flags_bytes);
+        let assume_valid_mask: u16 = 0b1000000000000000;
+        let assume_valid = (flags & assume_valid_mask) != 0;
+        let stage_mask: u16 = 0b0011000000000000;
+        let stage = ((flags & stage_mask) >> 12) as u8;
+        let name_length_mask: u16 = 0b0000111111111111;
+        let _name_length = flags & name_length_mask;
 
         let mut name_bytes = Vec::new();
         reader.read_until(b'\0', &mut name_bytes)?;
@@ -211,8 +218,8 @@ impl IndexEntry {
             gid,
             size,
             oid,
-            assume_valid: false,
-            stage: 0,
+            assume_valid,
+            stage,
             name,
         })
     }
@@ -271,8 +278,8 @@ mod tests {
                 gid: 4321,
                 size: 4321,
                 oid: Oid::new("554b0c91f951764bb11f1db849685d95b2c7a48f").unwrap(),
-                assume_valid: false,
-                stage: 0,
+                assume_valid: true,
+                stage: 1,
                 name: "name2".to_string(),
             },
             IndexEntry {
@@ -288,7 +295,7 @@ mod tests {
                 size: 5678,
                 oid: Oid::new("bedc28ca5099946b354104a3c6cc90ec20dbcaec").unwrap(),
                 assume_valid: false,
-                stage: 0,
+                stage: 2,
                 name: "name3".to_string(),
             },
         ];
