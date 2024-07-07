@@ -15,8 +15,10 @@ use crate::{
 const INDEX_SIGNATURE: &str = "DIRC";
 const INDEX_VERSION: u32 = 2;
 
+// should not be public, maybe use an IndexBuilder?
 #[derive(Default, PartialEq, Eq, Debug)]
 pub struct Index {
+    // should be a vector
     pub entries: HashMap<Oid, IndexEntry>,
 }
 
