@@ -7,7 +7,10 @@ use std::{
 
 use sha1::{Digest, Sha1};
 
-use crate::{object::Oid, repository::GitResult};
+use crate::{
+    object::{Oid, OID_HEX_LEN},
+    repository::GitResult,
+};
 
 const INDEX_SIGNATURE: &str = "DIRC";
 const INDEX_VERSION: u32 = 2;
@@ -173,7 +176,7 @@ impl IndexEntry {
         reader.read_exact(&mut size_bytes)?;
         let size = u32::from_be_bytes(size_bytes);
 
-        let mut oid_bytes = [0; 20];
+        let mut oid_bytes = [0; OID_HEX_LEN];
         reader.read_exact(&mut oid_bytes)?;
         let oid = Oid::from_raw_bytes(oid_bytes);
 

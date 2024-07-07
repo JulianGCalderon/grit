@@ -10,6 +10,8 @@ use sha1::{Digest, Sha1};
 
 use crate::repository::{GitError, GitResult};
 
+pub const OID_HEX_LEN: usize = 20;
+
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Oid(String);
 
@@ -18,19 +20,19 @@ impl Oid {
         let hex_id = id.into();
         let decoded_len =
             base16ct::decoded_len(hex_id.as_bytes()).map_err(|_| GitError::InvalidOid)?;
-        if decoded_len != 20 {
+        if decoded_len != OID_HEX_LEN {
             Err(GitError::InvalidOid)
         } else {
             Ok(Self(hex_id))
         }
     }
 
-    pub fn to_raw_bytes(&self) -> [u8; 20] {
+    pub fn to_raw_bytes(&self) -> [u8; OID_HEX_LEN] {
         let raw_id = base16ct::lower::decode_vec(self.0.as_bytes()).expect("should never fail");
         raw_id.try_into().expect("should never fail")
     }
 
-    pub fn from_raw_bytes(raw_bytes: [u8; 20]) -> Self {
+    pub fn from_raw_bytes(raw_bytes: [u8; OID_HEX_LEN]) -> Self {
         let hex_id = base16ct::lower::encode_string(&raw_bytes);
         Self(hex_id)
     }
@@ -52,7 +54,7 @@ impl Blob {
         hasher.update(&header);
         io::copy(&mut plain, &mut hasher)?;
 
-        let raw_id: [u8; 20] = hasher.finalize().into();
+        let raw_id: [u8; OID_HEX_LEN] = hasher.finalize().into();
         let id = Oid::from_raw_bytes(raw_id);
 
         Ok(id)
