@@ -10,8 +10,8 @@ use sha1::{Digest, Sha1};
 
 use crate::{
     index::{Index, IndexEntry},
-    object::Blob,
-    repository::{blob, get_git_dir, GitResult},
+    object::{Blob, Oid},
+    repository::{blob, get_git_dir, get_object_path, GitResult},
 };
 
 pub fn init() -> GitResult<()> {
@@ -61,17 +61,17 @@ pub fn init() -> GitResult<()> {
 
 pub fn hash_object(file: &Path) -> GitResult<()> {
     let blob_id = blob(file)?;
-    let blob_hex_id = base16ct::lower::encode_string(&blob_id);
 
-    println!("{blob_hex_id}");
+    println!("{blob_id}");
 
     Ok(())
 }
 
 pub fn cat_file(id: &str) -> GitResult<()> {
-    let git_dir = get_git_dir();
+    let oid = Oid::new(id).unwrap();
 
-    let blob_path = git_dir.join(&format!("objects/{}/{}", &id[..2], &id[2..]));
+    let git_dir = get_git_dir();
+    let blob_path = get_object_path(&git_dir, &oid);
     let blob_file = File::open(blob_path)?;
 
     Blob::deserialize(blob_file, io::stdout())?;

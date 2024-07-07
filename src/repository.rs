@@ -33,12 +33,12 @@ pub fn blob(path: &Path) -> GitResult<Oid> {
     let length = file.metadata()?.len() as usize;
 
     let blob_id = Blob::hash(&mut file, length)?;
+    let blob_id_string = blob_id.to_string();
 
-    let blob_hex_id = base16ct::lower::encode_string(&blob_id);
     let blob_path = git_dir.join(format!(
         "objects/{}/{}",
-        &blob_hex_id[..2],
-        &blob_hex_id[2..]
+        &blob_id_string[..2],
+        &blob_id_string[2..]
     ));
     if let Some(base) = blob_path.parent() {
         create_dir_all(base)?;

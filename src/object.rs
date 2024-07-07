@@ -1,4 +1,7 @@
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::{
+    fmt::Display,
+    io::{self, BufRead, BufReader, Read, Write},
+};
 
 use flate2::{
     read::ZlibDecoder as ZlibReadDecoder, write::ZlibEncoder as ZlibWriteEncoder, Compression,
@@ -7,7 +10,35 @@ use sha1::{Digest, Sha1};
 
 use crate::repository::GitResult;
 
-pub type Oid = [u8; 20];
+#[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
+pub struct Oid(String);
+
+impl Oid {
+    pub fn new(hex_id: impl Into<String>) -> Option<Self> {
+        let hex_id = hex_id.into();
+        if base16ct::decoded_len(hex_id.as_bytes()).unwrap() != 20 {
+            None
+        } else {
+            Some(Self(hex_id))
+        }
+    }
+
+    pub fn to_raw_bytes(&self) -> [u8; 20] {
+        let raw_id = base16ct::lower::decode_vec(self.0.as_bytes()).expect("should never fail");
+        raw_id.try_into().expect("should never fail")
+    }
+
+    pub fn from_raw_bytes(raw_bytes: [u8; 20]) -> Self {
+        let hex_id = base16ct::lower::encode_string(&raw_bytes);
+        Self(hex_id)
+    }
+}
+
+impl Display for Oid {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
 
 pub struct Blob;
 
@@ -19,7 +50,10 @@ impl Blob {
         hasher.update(&header);
         io::copy(&mut plain, &mut hasher)?;
 
-        Ok(hasher.finalize().into())
+        let raw_id: [u8; 20] = hasher.finalize().into();
+        let id = Oid::from_raw_bytes(raw_id);
+
+        Ok(id)
     }
 
     pub fn serialize<R: Read, W: Write>(mut src: R, dst: W, length: usize) -> GitResult<()> {

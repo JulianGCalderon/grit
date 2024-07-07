@@ -109,7 +109,7 @@ impl IndexEntry {
         writer.write_all(&self.gid.to_be_bytes())?;
         writer.write_all(&self.size.to_be_bytes())?;
 
-        writer.write_all(&self.oid)?;
+        writer.write_all(&self.oid.to_raw_bytes())?;
 
         let assume_valid_bit = (self.assume_valid as u16) << 15;
         let extended_flag_bit = 0 << 14;
@@ -173,8 +173,9 @@ impl IndexEntry {
         reader.read_exact(&mut size_bytes)?;
         let size = u32::from_be_bytes(size_bytes);
 
-        let mut oid = [0; 20];
-        reader.read_exact(&mut oid)?;
+        let mut oid_bytes = [0; 20];
+        reader.read_exact(&mut oid_bytes)?;
+        let oid = Oid::from_raw_bytes(oid_bytes);
 
         let mut flags_bytes = vec![0; 2];
         reader.read_exact(&mut flags_bytes)?;
@@ -249,7 +250,7 @@ mod tests {
                 uid: 1234,
                 gid: 1234,
                 size: 1234,
-                oid: "f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc".to_string(),
+                oid: Oid::new("f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc").unwrap(),
                 assume_valid: false,
                 stage: 0,
                 name: "name1".to_string(),
@@ -265,7 +266,7 @@ mod tests {
                 uid: 4321,
                 gid: 4321,
                 size: 4321,
-                oid: "554b0c91f951764bb11f1db849685d95b2c7a48f".to_string(),
+                oid: Oid::new("554b0c91f951764bb11f1db849685d95b2c7a48f").unwrap(),
                 assume_valid: false,
                 stage: 0,
                 name: "name2".to_string(),
@@ -281,7 +282,7 @@ mod tests {
                 uid: 5678,
                 gid: 5678,
                 size: 5678,
-                oid: "bedc28ca5099946b354104a3c6cc90ec20dbcaec".to_string(),
+                oid: Oid::new("bedc28ca5099946b354104a3c6cc90ec20dbcaec").unwrap(),
                 assume_valid: false,
                 stage: 0,
                 name: "name3".to_string(),
