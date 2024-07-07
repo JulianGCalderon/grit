@@ -11,3 +11,6 @@ flate2 = "1.0.30"
 libc = "0.2"
 sha1 = "0.10.6"
 thiserror = "1.0.61"
+
+[dev-dependencies]
+rand = { version = "0.8.5", features = ["std_rng"] }
