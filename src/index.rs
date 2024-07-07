@@ -11,12 +11,12 @@ use crate::{command::GitResult, object::OId};
 const INDEX_SIGNATURE: &str = "DIRC";
 const INDEX_VERSION: u32 = 2;
 
-#[derive(Default, PartialEq, Eq)]
+#[derive(Default, PartialEq, Eq, Debug)]
 pub struct Index {
     pub entries: Vec<IndexEntry>,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct IndexEntry {
     pub ctime: i32,
     pub ctime_nsec: i32,
@@ -132,5 +132,75 @@ impl Ord for IndexEntry {
         let name_ordering = self.name.cmp(&other.name);
 
         name_ordering.then(stage_ordering)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    pub fn index_integration() {
+        let index = Index {
+            entries: vec![
+                IndexEntry {
+                    ctime: 1234,
+                    ctime_nsec: 1234,
+                    mtime: 1234,
+                    mtime_nsec: 1234,
+                    dev: 1234,
+                    ino: 1234,
+                    mode: 1234,
+                    uid: 1234,
+                    gid: 1234,
+                    size: 1234,
+                    oid: "f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc".to_string(),
+                    assume_valid: false,
+                    stage: 0,
+                    name: "name1".to_string(),
+                },
+                IndexEntry {
+                    ctime: 4321,
+                    ctime_nsec: 4321,
+                    mtime: 4321,
+                    mtime_nsec: 4321,
+                    dev: 4321,
+                    ino: 4321,
+                    mode: 4321,
+                    uid: 4321,
+                    gid: 4321,
+                    size: 4321,
+                    oid: "554b0c91f951764bb11f1db849685d95b2c7a48f".to_string(),
+                    assume_valid: false,
+                    stage: 0,
+                    name: "name2".to_string(),
+                },
+                IndexEntry {
+                    ctime: 5678,
+                    ctime_nsec: 5678,
+                    mtime: 5678,
+                    mtime_nsec: 5678,
+                    dev: 5678,
+                    ino: 5678,
+                    mode: 5678,
+                    uid: 5678,
+                    gid: 5678,
+                    size: 5678,
+                    oid: "bedc28ca5099946b354104a3c6cc90ec20dbcaec".to_string(),
+                    assume_valid: false,
+                    stage: 0,
+                    name: "name3".to_string(),
+                },
+            ],
+        };
+
+        let mut serialized = Vec::new();
+        index.serialize_to_writer(&mut serialized).unwrap();
+
+        let serialized_cursor = Cursor::new(serialized);
+        let deserialized = Index::deserialize_from_reader(serialized_cursor).unwrap();
+
+        assert_eq!(index, deserialized);
     }
 }
