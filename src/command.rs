@@ -1,30 +1,18 @@
 use std::{
-    env,
     fs::{self, create_dir, create_dir_all, remove_dir_all, write, File},
     io::{self, BufRead as _, BufReader, Read as _, Write},
     os::unix::fs::MetadataExt as _,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
 use flate2::Compression;
 use sha1::{Digest, Sha1};
-use thiserror::Error;
 
 use crate::{
     index::{Index, IndexEntry},
     object::Blob,
+    repository::{blob, get_git_dir, GitResult},
 };
-
-const GIT_DIR: &str = ".grit";
-const GIT_DIR_ENV: &str = "GRIT_DIR";
-
-#[derive(Error, Debug)]
-pub enum GitError {
-    #[error(transparent)]
-    IO(#[from] io::Error),
-}
-
-pub type GitResult<T> = Result<T, GitError>;
 
 pub fn init() -> GitResult<()> {
     let git_dir = get_git_dir();
@@ -128,12 +116,9 @@ pub fn update_index(file: &Path) -> GitResult<()> {
 }
 
 pub fn write_tree() -> GitResult<()> {
-    let index_path = {
-        let git_dir = env::var(GIT_DIR_ENV);
-        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-        let git_dir = Path::new(git_dir);
-        git_dir.join("index")
-    };
+    let git_dir = get_git_dir();
+
+    let index_path = git_dir.join("index");
 
     let mut index_file = BufReader::new(File::open(index_path)?);
 
@@ -194,16 +179,11 @@ pub fn write_tree() -> GitResult<()> {
     let tree_hex_hash = base16ct::lower::encode_string(&tree_hash);
     println!("{tree_hex_hash}");
 
-    let tree_path = {
-        let git_dir = env::var(GIT_DIR_ENV);
-        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-        let git_dir = Path::new(git_dir);
-        git_dir.join(format!(
-            "objects/{}/{}",
-            &tree_hex_hash[..2],
-            &tree_hex_hash[2..]
-        ))
-    };
+    let tree_path = git_dir.join(format!(
+        "objects/{}/{}",
+        &tree_hex_hash[..2],
+        &tree_hex_hash[2..]
+    ));
 
     if let Some(base) = tree_path.parent() {
         create_dir_all(base)?;
@@ -230,6 +210,8 @@ fn mask_and_cast(mode: u32, mask: u32) -> u8 {
 }
 
 pub fn commit_tree(hash: &str, message: Option<&str>) -> GitResult<()> {
+    let git_dir = get_git_dir();
+
     let mut tree_entries = Vec::new();
 
     tree_entries.write_all("tree ".as_bytes())?;
@@ -260,12 +242,7 @@ pub fn commit_tree(hash: &str, message: Option<&str>) -> GitResult<()> {
 
     let hex_hash = base16ct::lower::encode_string(&hash);
 
-    let commit_path = {
-        let git_dir = env::var(GIT_DIR_ENV);
-        let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-        let git_dir = Path::new(git_dir);
-        git_dir.join(format!("objects/{}/{}", &hex_hash[..2], &hex_hash[2..]))
-    };
+    let commit_path = git_dir.join(format!("objects/{}/{}", &hex_hash[..2], &hex_hash[2..]));
 
     let parent = commit_path.parent();
     if let Some(parent) = parent {
@@ -277,10 +254,6 @@ pub fn commit_tree(hash: &str, message: Option<&str>) -> GitResult<()> {
     encoder.write_all(header.as_bytes())?;
     encoder.write_all(&tree_entries)?;
 
-    let git_dir = env::var(GIT_DIR_ENV);
-    let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-    let git_dir = Path::new(git_dir);
-
     let commit_path = git_dir.join(format!("refs/heads/master"));
     let mut commit_file = File::create(&commit_path)?;
     commit_file.write_all(hex_hash.as_bytes())?;
@@ -289,23 +262,4 @@ pub fn commit_tree(hash: &str, message: Option<&str>) -> GitResult<()> {
     println!("{}", hex_hash);
 
     Ok(())
-}
-
-fn get_git_dir() -> PathBuf {
-    let git_dir = env::var(GIT_DIR_ENV);
-    let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);
-    PathBuf::from(git_dir)
-}
-
-fn blob(file: &Path) -> Result<String, GitError> {
-    let git_dir = get_git_dir();
-
-    let blob = Blob::create(file)?;
-    let blob_id = blob.id().clone();
-    let blob_path = git_dir.join(format!("objects/{}/{}", &blob_id[..2], &blob_id[2..]));
-    if let Some(base) = blob_path.parent() {
-        create_dir_all(base)?;
-    };
-    blob.save(blob_path)?;
-    Ok(blob_id)
 }

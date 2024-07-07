@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use grit::command::{self, GitResult};
+use grit::{command, repository::GitResult};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

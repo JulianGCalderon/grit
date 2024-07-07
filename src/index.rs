@@ -7,7 +7,7 @@ use std::{
 
 use sha1::{Digest, Sha1};
 
-use crate::{command::GitResult, object::OId};
+use crate::{object::OId, repository::GitResult};
 
 const INDEX_SIGNATURE: &str = "DIRC";
 const INDEX_VERSION: u32 = 2;

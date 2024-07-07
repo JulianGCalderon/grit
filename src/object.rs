@@ -9,7 +9,7 @@ use flate2::{
 };
 use sha1::{Digest, Sha1};
 
-use crate::command::GitResult;
+use crate::repository::GitResult;
 
 pub type OId = String;
 
