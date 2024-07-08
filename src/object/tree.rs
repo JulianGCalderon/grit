@@ -90,3 +90,13 @@ impl TreeEntry {
         28 + self.name.len()
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    pub fn can_serialize_and_deserialized() {}
+
+    #[test]
+    pub fn size_is_correct() {}
+}
