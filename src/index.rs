@@ -249,7 +249,7 @@ mod tests {
     use pretty_assertions_sorted::assert_eq;
 
     #[test]
-    pub fn index_integration() {
+    pub fn can_serialize_and_deserialize() {
         let entries = vec![
             IndexEntry {
                 ctime: 1234,

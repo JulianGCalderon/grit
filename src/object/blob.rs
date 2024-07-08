@@ -56,7 +56,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn blob_fuzzy_integration() {
+    pub fn can_serialize_and_deserialize() {
         let mut original = vec![0; 100];
         let mut rng_core = rand::rngs::StdRng::seed_from_u64(0);
 
