@@ -10,6 +10,7 @@ use sha1::{Digest, Sha1};
 use crate::{
     object::{Oid, OID_HEX_LEN},
     repository::GitResult,
+    utils::extract_bits,
 };
 
 const INDEX_SIGNATURE: &str = "DIRC";
@@ -238,10 +239,6 @@ impl Ord for IndexEntry {
 
         name_ordering.then(stage_ordering)
     }
-}
-
-fn extract_bits(original: u16, mask: u16, location: u8) -> u16 {
-    (original >> location) & mask
 }
 
 #[cfg(test)]

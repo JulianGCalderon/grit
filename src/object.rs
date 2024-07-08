@@ -6,6 +6,7 @@ mod blob;
 mod tree;
 
 pub use blob::Blob;
+pub use tree::{Tree, TreeEntry};
 
 pub const OID_HEX_LEN: usize = 20;
 
