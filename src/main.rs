@@ -23,13 +23,13 @@ enum Command {
 fn main() -> GitResult<()> {
     let cli = Cli::parse();
 
-    match &cli.command {
+    match cli.command {
         Command::Init => command::init()?,
-        Command::HashObject { path } => command::hash_object(&path)?,
-        Command::CatFile { hash } => command::cat_file(&hash)?,
-        Command::UpdateIndex { path } => command::update_index(&path)?,
+        Command::HashObject { path } => command::hash_object(path)?,
+        Command::CatFile { hash } => command::cat_file(hash)?,
+        Command::UpdateIndex { path } => command::update_index(path)?,
         Command::WriteTree => command::write_tree()?,
-        Command::CommitTree { hash, message } => command::commit_tree(&hash, &message)?,
+        Command::CommitTree { hash, message } => command::commit_tree(hash, message)?,
     }
 
     Ok(())

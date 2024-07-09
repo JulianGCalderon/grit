@@ -1,7 +1,7 @@
 use std::{
     fs::{self, create_dir, create_dir_all, remove_dir_all, write, File},
-    io::{self},
-    path::Path,
+    io,
+    path::PathBuf,
 };
 
 use crate::{
@@ -55,15 +55,15 @@ pub fn init() -> GitResult<()> {
     Ok(())
 }
 
-pub fn hash_object(file: &Path) -> GitResult<()> {
-    let blob_id = blob(file)?;
+pub fn hash_object(file: PathBuf) -> GitResult<()> {
+    let blob_id = blob(&file)?;
 
     println!("{blob_id}");
 
     Ok(())
 }
 
-pub fn cat_file(id: &str) -> GitResult<()> {
+pub fn cat_file(id: String) -> GitResult<()> {
     let oid = Oid::new(id)?;
 
     let git_dir = get_git_dir();
@@ -75,17 +75,20 @@ pub fn cat_file(id: &str) -> GitResult<()> {
     Ok(())
 }
 
-pub fn update_index(file: &Path) -> GitResult<()> {
+pub fn update_index(file: PathBuf) -> GitResult<()> {
     let git_dir = get_git_dir();
 
     let index_path = git_dir.join("index");
     let mut index = Index::deserialize_from_path(&index_path).unwrap_or_default();
 
-    let blob_id = blob(file)?;
+    let blob_id = blob(&file)?;
 
     let entry = {
-        let metadata = fs::metadata(file)?;
-        let name = file.to_str().expect("filename is not utf8").to_string();
+        let metadata = fs::metadata(&file)?;
+        let name = file
+            .into_os_string()
+            .into_string()
+            .expect("filename is not utf8");
         IndexEntry::new(metadata, blob_id, false, 0, name)?
     };
 
@@ -131,7 +134,7 @@ pub fn write_tree() -> GitResult<()> {
     Ok(())
 }
 
-pub fn commit_tree(tree_id: &str, message: &str) -> GitResult<()> {
+pub fn commit_tree(tree_id: String, message: String) -> GitResult<()> {
     let git_dir = get_git_dir();
 
     let commit = Commit::new(
