@@ -165,3 +165,14 @@ pub fn commit_tree(tree_id: String, parent: Option<String>, message: String) -> 
 
     Ok(())
 }
+
+pub fn update_ref(hash: String) -> GitResult<()> {
+    let oid = Oid::new(hash)?;
+
+    let git_dir = get_git_dir();
+    let reference_path = get_reference_path(&git_dir, DEFAULT_BRANCH);
+
+    write(reference_path, oid.as_bytes())?;
+
+    Ok(())
+}

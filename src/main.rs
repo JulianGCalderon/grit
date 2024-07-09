@@ -30,6 +30,9 @@ enum Command {
         #[arg(short, long)]
         message: String,
     },
+    UpdateRef {
+        hash: String,
+    },
 }
 
 fn main() -> GitResult<()> {
@@ -46,6 +49,7 @@ fn main() -> GitResult<()> {
             message,
             parent,
         } => command::commit_tree(hash, parent, message)?,
+        Command::UpdateRef { hash } => command::update_ref(hash)?,
     }
 
     Ok(())
