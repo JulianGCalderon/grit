@@ -19,17 +19,24 @@ pub struct Commit {
 impl Commit {
     pub fn new(
         tree_id: Oid,
-        message: String,
+        mut message: String,
         author: String,
         author_email: String,
         commiter: String,
         commiter_email: String,
     ) -> GitResult<Self> {
+        if message
+            .as_bytes()
+            .last()
+            .map(|&last| last != b'\n')
+            .unwrap_or_default()
+        {
+            message.push('\n')
+        }
+
         Ok(Self {
             tree_id,
-            // should have trailing newline
             message,
-            // others can't have newlines
             author,
             author_email,
             commiter,
@@ -77,7 +84,7 @@ impl Commit {
     }
 
     pub fn header(&self) -> Vec<u8> {
-        // 106 bytes are fixed, the author, commiter, and message are variable
+        // 106 bytes are fixed, the rest is variable
         let size = 106
             + self.author.as_bytes().len()
             + self.author_email.as_bytes().len()
