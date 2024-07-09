@@ -1,5 +1,5 @@
 use std::{
-    fs::{self, create_dir, create_dir_all, write, File},
+    fs::{self, create_dir_all, write, File},
     io,
     path::PathBuf,
 };
@@ -41,21 +41,21 @@ pub fn init() -> GitResult<()> {
     let branches = git_dir.join("branches");
     let hooks = git_dir.join("hooks");
     let info = git_dir.join("info");
-    create_dir(branches)?;
-    create_dir(hooks)?;
-    create_dir(info)?;
+    create_dir_all(branches)?;
+    create_dir_all(hooks)?;
+    create_dir_all(info)?;
 
     let objects = git_dir.join("objects");
     let objects_info = objects.join("objects_info");
     let objects_pack = objects.join("objects_pack");
     create_dir_all(objects_info)?;
-    create_dir(objects_pack)?;
+    create_dir_all(objects_pack)?;
 
     let refs = git_dir.join("refs");
     let refs_heads = refs.join("heads");
     let refs_tags = refs.join("tags");
     create_dir_all(refs_heads)?;
-    create_dir(refs_tags)?;
+    create_dir_all(refs_tags)?;
 
     Ok(())
 }
