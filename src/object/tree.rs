@@ -85,8 +85,7 @@ impl TreeEntry {
     }
 
     pub fn size(&self) -> usize {
-        // 28 bytes are fixed are fixed, the only variable
-        // element is the entry name
+        // 28 bytes are fixed, the only variable element is the entry name
         28 + self.name.len()
     }
 }

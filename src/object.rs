@@ -3,9 +3,11 @@ use std::{fmt::Display, ops::Deref};
 use crate::repository::{GitError, GitResult};
 
 mod blob;
+mod commit;
 mod tree;
 
 pub use blob::Blob;
+pub use commit::Commit;
 pub use tree::{Tree, TreeEntry};
 
 pub const OID_HEX_LEN: usize = 20;

@@ -10,7 +10,7 @@ use sha1::{Digest, Sha1};
 
 use crate::{
     index::{Index, IndexEntry},
-    object::{Blob, Oid, Tree, TreeEntry},
+    object::{Blob, Commit, Oid, Tree, TreeEntry},
     repository::{blob, get_git_dir, get_object_path, GitResult},
 };
 
@@ -137,6 +137,9 @@ pub fn write_tree() -> GitResult<()> {
 
     let tree_id = tree.hash();
     let tree_path = get_object_path(&git_dir, &tree_id);
+    if let Some(base) = tree_path.parent() {
+        create_dir_all(base)?;
+    };
     let tree_file = File::create(tree_path)?;
 
     tree.serialize(tree_file)?;
@@ -146,57 +149,28 @@ pub fn write_tree() -> GitResult<()> {
     Ok(())
 }
 
-pub fn commit_tree(hash: &str, message: Option<&str>) -> GitResult<()> {
+pub fn commit_tree(tree_id: &str, message: &str) -> GitResult<()> {
     let git_dir = get_git_dir();
 
-    let mut tree_entries = Vec::new();
+    let commit = Commit {
+        tree_id: Oid::new(tree_id)?,
+        message: message.to_string(),
+        author: "John Doe".to_string(),
+        author_email: "johndoe@mail.com".to_string(),
+        commiter: "John Doe".to_string(),
+        commiter_email: "johndoe@mail.com".to_string(),
+    };
 
-    tree_entries.write_all("tree ".as_bytes())?;
-    tree_entries.write_all(hash.as_bytes())?;
-    tree_entries.push(b'\n');
-    tree_entries.write_all("author author <author@mail.com> ".as_bytes())?;
+    let commit_id = commit.hash();
+    let commit_path = get_object_path(&git_dir, &commit_id);
+    if let Some(base) = commit_path.parent() {
+        create_dir_all(base)?;
+    };
+    let commit_file = File::create(commit_path)?;
 
-    let timestamp = chrono::Local::now();
+    commit.serialize(commit_file)?;
 
-    tree_entries.write_all(timestamp.format("%s %z\n").to_string().as_bytes())?;
-    tree_entries.write_all("commiter commiter <commiter@mail.com> ".as_bytes())?;
-    tree_entries.write_all(timestamp.format("%s %z\n\n").to_string().as_bytes())?;
-
-    if let Some(message) = message {
-        tree_entries.write_all(message.as_bytes())?;
-        tree_entries.push(b'\n');
-    }
-
-    let mut hasher = Sha1::new();
-
-    let file_size = tree_entries.len();
-    let header = format!("commit {file_size}\0");
-
-    hasher.update(&header);
-    hasher.update(&tree_entries);
-
-    let hash = hasher.finalize();
-
-    let hex_hash = base16ct::lower::encode_string(&hash);
-
-    let commit_path = git_dir.join(format!("objects/{}/{}", &hex_hash[..2], &hex_hash[2..]));
-
-    let parent = commit_path.parent();
-    if let Some(parent) = parent {
-        create_dir_all(parent)?;
-    }
-
-    let mut commit_file = File::create(commit_path)?;
-    let mut encoder = flate2::write::ZlibEncoder::new(&mut commit_file, Compression::default());
-    encoder.write_all(header.as_bytes())?;
-    encoder.write_all(&tree_entries)?;
-
-    let commit_path = git_dir.join(format!("refs/heads/master"));
-    let mut commit_file = File::create(&commit_path)?;
-    commit_file.write_all(hex_hash.as_bytes())?;
-    commit_file.write_all(&[b'\n'])?;
-
-    println!("{}", hex_hash);
+    println!("{}", commit_id);
 
     Ok(())
 }
