@@ -31,7 +31,7 @@ Available recipes:
     test   # run tests
 ```
 
-By default, `.grit` is used as the default repository directory, it can be modified with by setting the environment variable `GRIT_DIR`
+By default, `.grit` is used as the default repository directory, it can be modified by setting the environment variable `GRIT_DIR`
 
 ## Showcase
 
