@@ -8,6 +8,7 @@ use crate::repository::GitResult;
 use super::Oid;
 
 pub struct Commit {
+    parents: Vec<Oid>,
     tree_id: Oid,
     message: String,
     author: String,
@@ -18,6 +19,7 @@ pub struct Commit {
 
 impl Commit {
     pub fn new(
+        parents: Vec<Oid>,
         tree_id: Oid,
         mut message: String,
         author: String,
@@ -35,6 +37,7 @@ impl Commit {
         }
 
         Ok(Self {
+            parents,
             tree_id,
             message,
             author,
@@ -108,6 +111,10 @@ mod tests {
     #[test]
     pub fn size_calculation_is_correct() {
         let commit = Commit::new(
+            vec![
+                Oid::new("554b0c91f951764bb11f1db849685d95b2c7a48f").unwrap(),
+                Oid::new("bedc28ca5099946b354104a3c6cc90ec20dbcaec").unwrap(),
+            ],
             Oid::new("f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc").unwrap(),
             "message".to_string(),
             "John Doe".to_string(),

@@ -13,11 +13,23 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     Init,
-    HashObject { path: PathBuf },
-    CatFile { hash: String },
-    UpdateIndex { path: PathBuf },
+    HashObject {
+        path: PathBuf,
+    },
+    CatFile {
+        hash: String,
+    },
+    UpdateIndex {
+        path: PathBuf,
+    },
     WriteTree,
-    CommitTree { hash: String, message: String },
+    CommitTree {
+        hash: String,
+        #[arg(short, long)]
+        parent: Option<String>,
+        #[arg(short, long)]
+        message: String,
+    },
 }
 
 fn main() -> GitResult<()> {
@@ -29,7 +41,11 @@ fn main() -> GitResult<()> {
         Command::CatFile { hash } => command::cat_file(hash)?,
         Command::UpdateIndex { path } => command::update_index(path)?,
         Command::WriteTree => command::write_tree()?,
-        Command::CommitTree { hash, message } => command::commit_tree(hash, message)?,
+        Command::CommitTree {
+            hash,
+            message,
+            parent,
+        } => command::commit_tree(hash, parent, message)?,
     }
 
     Ok(())

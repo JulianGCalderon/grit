@@ -126,10 +126,17 @@ pub fn write_tree() -> GitResult<()> {
     Ok(())
 }
 
-pub fn commit_tree(tree_id: String, message: String) -> GitResult<()> {
+pub fn commit_tree(tree_id: String, parent: Option<String>, message: String) -> GitResult<()> {
     let git_dir = get_git_dir();
 
+    let mut parents = Vec::new();
+
+    if let Some(parent) = parent {
+        parents.push(Oid::new(parent)?)
+    };
+
     let commit = Commit::new(
+        parents,
         Oid::new(tree_id)?,
         message.to_string(),
         "John Doe".to_string(),
