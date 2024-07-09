@@ -24,7 +24,12 @@ just test
 
 To get a list of all recipes, run:
 ```bash
-just -l
+$ just -l
+Available recipes:
+    build  # build the project
+    check  # check format and clippy
+    format # run cargo fmt
+    test   # run tests
 ```
 
 ## Showcase
