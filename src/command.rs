@@ -107,7 +107,7 @@ pub fn write_tree() -> GitResult<()> {
                     index_entry.name().to_string(),
                     index_entry.oid().clone(),
                 )
-                .expect("index entries are already valid")
+                .expect("index entries are always valid")
             })
             .collect(),
     );
