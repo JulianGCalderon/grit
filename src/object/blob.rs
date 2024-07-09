@@ -14,9 +14,10 @@ pub struct Blob;
 impl Blob {
     pub fn hash<R: Read>(mut plain: R, length: usize) -> GitResult<Oid> {
         let mut hasher = Sha1::new();
-        let header = Self::header(length);
 
+        let header = Self::header(length);
         hasher.update(&header);
+
         io::copy(&mut plain, &mut hasher)?;
 
         let raw_id = hasher.finalize().into();
@@ -27,6 +28,7 @@ impl Blob {
 
     pub fn serialize<R: Read, W: Write>(mut src: R, dst: W, length: usize) -> GitResult<()> {
         let mut encoder = ZlibWriteEncoder::new(dst, Compression::default());
+
         encoder.write_all(&Self::header(length))?;
         io::copy(&mut src, &mut encoder)?;
 
