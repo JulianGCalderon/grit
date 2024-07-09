@@ -8,7 +8,7 @@ I want to learn in detail the internals of Git and how the information is serial
 ### Dependencies
 
 - Rust
-- Just (optional)
+- [Just](https://github.com/casey/just) (optional)
 
 ### Usage
 
