@@ -32,6 +32,8 @@ Available recipes:
     test   # run tests
 ```
 
+By default, `.grit` is used as the default repository directory, it can be modified with by setting the environment variable `GRIT_DIR`
+
 ## Showcase
 
 A short demostration on how to commit changes using plumbing commands:
