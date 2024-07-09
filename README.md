@@ -1,7 +1,6 @@
 # Grit
 
-A Git implementation in Rust. Aims to be 100% compatible. I developed this purely for learning purposes and doesn't propose any advatange over using Git, not even in speed.
-I want to learn in detail the internals of Git and how the information is serialized. I do not intend to make a full Git rewrite, just enough to have a usable version control system
+A Git implementation in Rust. Aims to be 100% compatible. I developed this purely for learning purposes and doesn't propose any advatange over using Git, not even in speed. I want to learn in detail the internals of Git and how the information is serialized. I do not intend to make a full Git rewrite, just enough to have a usable version control system
 
 ## Getting Started
 
@@ -68,7 +67,7 @@ nothing to commit, working tree clean
 
 $ git log --oneline
 1d9c99d (HEAD -> master) Second commit!
-e149ca0 First commit! 
+e149ca0 First commit!
 
 $ git log -1
 commit 1d9c99de5449e4ab41030ea697b44c2f5dd55395 (HEAD -> master)
@@ -93,7 +92,7 @@ $ git ls-files --stage
 
 ## Roadmap
 
-The roadmap is incomplete as I am not yet familiar with all git internal commands. I will updated it as I develop them. 
+The roadmap is incomplete as I am not yet familiar with all git internal commands. I will updated it as I develop them.
 
 ### Plumbing
 
