@@ -64,13 +64,13 @@ impl Commit {
 
         encoder.write_all(&self.header())?;
 
+        let tree_line = format!("tree {}\n", self.tree_id);
+        encoder.write_all(tree_line.as_bytes())?;
+
         for parent in &self.parents {
             let parent_line = format!("parent {}\n", parent);
             encoder.write_all(parent_line.as_bytes())?;
         }
-
-        let tree_line = format!("tree {}\n", self.tree_id);
-        encoder.write_all(tree_line.as_bytes())?;
 
         let timestamp = chrono::Local::now().format("%s %z");
 
