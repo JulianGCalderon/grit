@@ -84,13 +84,49 @@ impl Commit {
     }
 
     pub fn header(&self) -> Vec<u8> {
+        format!("commit {}\0", self.size()).into_bytes()
+    }
+
+    fn size(&self) -> usize {
         // 106 bytes are fixed, the rest is variable
-        let size = 106
-            + self.author.as_bytes().len()
+        106 + self.author.as_bytes().len()
             + self.author_email.as_bytes().len()
             + self.commiter.as_bytes().len()
             + self.commiter_email.as_bytes().len()
-            + self.message.as_bytes().len();
-        format!("commit {size}\0").into_bytes()
+            + self.message.as_bytes().len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use flate2::write::ZlibDecoder as ZlibWriteDecoder;
+    use pretty_assertions_sorted::assert_eq;
+    use std::io;
+
+    use super::*;
+
+    #[test]
+    pub fn size_is_correct() {
+        let commit = Commit::new(
+            Oid::new("f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc").unwrap(),
+            "message".to_string(),
+            "John Doe".to_string(),
+            "johndoe@mail.com".to_string(),
+            "John Doe".to_string(),
+            "johndoe@mail.com".to_string(),
+        )
+        .unwrap();
+
+        let mut serialized = Vec::new();
+        commit.serialize(&mut serialized).unwrap();
+
+        let mut decoded = Vec::new();
+        let mut decoder = ZlibWriteDecoder::new(&mut decoded);
+        io::copy(&mut serialized.as_slice(), &mut decoder).unwrap();
+        decoder.finish().unwrap();
+
+        let header = commit.header();
+
+        assert_eq!(decoded.len() - header.len(), commit.size())
     }
 }
