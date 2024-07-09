@@ -5,7 +5,7 @@ use sha1::{Digest, Sha1};
 
 use crate::repository::GitResult;
 
-use super::{Oid, OID_HEX_LEN};
+use super::Oid;
 
 pub struct Commit {
     pub tree_id: Oid,
@@ -27,7 +27,7 @@ impl Commit {
         self.serialize(&mut hasher)
             .expect("writing to hasher cannot fail");
 
-        let raw_id: [u8; OID_HEX_LEN] = hasher.finalize().into();
+        let raw_id = hasher.finalize().into();
 
         Oid::from_raw_bytes(raw_id)
     }

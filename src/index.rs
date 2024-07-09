@@ -8,7 +8,7 @@ use std::{
 use sha1::{Digest, Sha1};
 
 use crate::{
-    object::{Oid, OID_HEX_LEN},
+    object::{Oid, RawOid},
     repository::GitResult,
     utils::extract_bits,
 };
@@ -180,7 +180,7 @@ impl IndexEntry {
         reader.read_exact(&mut size_bytes)?;
         let size = u32::from_be_bytes(size_bytes);
 
-        let mut oid_bytes = [0; OID_HEX_LEN];
+        let mut oid_bytes = RawOid::default();
         reader.read_exact(&mut oid_bytes)?;
         let oid = Oid::from_raw_bytes(oid_bytes);
 

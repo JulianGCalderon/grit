@@ -5,7 +5,7 @@ use sha1::{Digest, Sha1};
 
 use crate::{repository::GitResult, utils::extract_bits};
 
-use super::{Oid, OID_HEX_LEN};
+use super::Oid;
 
 pub struct Tree {
     pub entries: Vec<TreeEntry>,
@@ -30,7 +30,7 @@ impl Tree {
                 .expect("writing to hasher cannot fail");
         }
 
-        let raw_id: [u8; OID_HEX_LEN] = hasher.finalize().into();
+        let raw_id = hasher.finalize().into();
 
         Oid::from_raw_bytes(raw_id)
     }

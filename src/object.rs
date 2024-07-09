@@ -10,10 +10,11 @@ pub use blob::Blob;
 pub use commit::Commit;
 pub use tree::{Tree, TreeEntry};
 
-pub const OID_HEX_LEN: usize = 20;
-
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Oid(String);
+
+pub const OID_HEX_LEN: usize = 20;
+pub type RawOid = [u8; OID_HEX_LEN];
 
 impl Oid {
     pub fn new(id: impl Into<String>) -> GitResult<Self> {
@@ -27,12 +28,12 @@ impl Oid {
         }
     }
 
-    pub fn to_raw_bytes(&self) -> [u8; OID_HEX_LEN] {
+    pub fn to_raw_bytes(&self) -> RawOid {
         let raw_id = base16ct::lower::decode_vec(self.0.as_bytes()).expect("should never fail");
         raw_id.try_into().expect("should never fail")
     }
 
-    pub fn from_raw_bytes(raw_bytes: [u8; OID_HEX_LEN]) -> Self {
+    pub fn from_raw_bytes(raw_bytes: RawOid) -> Self {
         let hex_id = base16ct::lower::encode_string(&raw_bytes);
         Self(hex_id)
     }
