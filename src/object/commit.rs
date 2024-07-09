@@ -106,7 +106,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn size_is_correct() {
+    pub fn size_calculation_is_correct() {
         let commit = Commit::new(
             Oid::new("f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc").unwrap(),
             "message".to_string(),

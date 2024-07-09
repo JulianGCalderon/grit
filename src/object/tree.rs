@@ -196,7 +196,7 @@ mod tests {
     }
 
     #[test]
-    pub fn size_is_correct() {
+    pub fn size_calculation_is_correct() {
         let entry = TreeEntry {
             mode: 1234,
             name: "name".to_string(),
