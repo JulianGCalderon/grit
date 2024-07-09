@@ -8,17 +8,35 @@ use crate::repository::GitResult;
 use super::Oid;
 
 pub struct Commit {
-    pub tree_id: Oid,
-    // should have trailing newline
-    // others can't have newlines
-    pub message: String,
-    pub author: String,
-    pub author_email: String,
-    pub commiter: String,
-    pub commiter_email: String,
+    tree_id: Oid,
+    message: String,
+    author: String,
+    author_email: String,
+    commiter: String,
+    commiter_email: String,
 }
 
 impl Commit {
+    pub fn new(
+        tree_id: Oid,
+        message: String,
+        author: String,
+        author_email: String,
+        commiter: String,
+        commiter_email: String,
+    ) -> GitResult<Self> {
+        Ok(Self {
+            tree_id,
+            // should have trailing newline
+            message,
+            // others can't have newlines
+            author,
+            author_email,
+            commiter,
+            commiter_email,
+        })
+    }
+
     pub fn hash(&self) -> Oid {
         let mut hasher = Sha1::new();
         let header = self.header();

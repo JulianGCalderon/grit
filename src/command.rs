@@ -134,14 +134,14 @@ pub fn write_tree() -> GitResult<()> {
 pub fn commit_tree(tree_id: &str, message: &str) -> GitResult<()> {
     let git_dir = get_git_dir();
 
-    let commit = Commit {
-        tree_id: Oid::new(tree_id)?,
-        message: message.to_string(),
-        author: "John Doe".to_string(),
-        author_email: "johndoe@mail.com".to_string(),
-        commiter: "John Doe".to_string(),
-        commiter_email: "johndoe@mail.com".to_string(),
-    };
+    let commit = Commit::new(
+        Oid::new(tree_id)?,
+        message.to_string(),
+        "John Doe".to_string(),
+        "johndoe@mail.com".to_string(),
+        "John Doe".to_string(),
+        "johndoe@mail.com".to_string(),
+    )?;
 
     let commit_id = commit.hash();
     let commit_path = get_object_path(&git_dir, &commit_id);
