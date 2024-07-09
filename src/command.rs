@@ -8,8 +8,8 @@ use crate::{
     index::{Index, IndexEntry},
     object::{Blob, Commit, Oid, Tree, TreeEntry},
     repository::{
-        blob, create_object_path, get_git_dir, get_object_path, get_reference_path, GitResult,
-        DEFAULT_BRANCH, DEFAULT_CONTENT,
+        blob, create_object_path, get_git_dir, get_object_path, get_reference_path,
+        get_reference_relative_path, GitResult, DEFAULT_BRANCH, DEFAULT_CONTENT,
     },
 };
 
@@ -24,7 +24,7 @@ pub fn init() -> GitResult<()> {
             head,
             format!(
                 "ref: {}",
-                get_reference_path(&git_dir, DEFAULT_BRANCH)
+                get_reference_relative_path(DEFAULT_BRANCH)
                     .into_os_string()
                     .into_string()
                     .expect("references are always utf8")

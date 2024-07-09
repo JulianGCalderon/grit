@@ -48,7 +48,11 @@ pub fn get_object_path(git_dir: &Path, oid: &Oid) -> PathBuf {
 }
 
 pub fn get_reference_path(git_dir: &Path, name: &str) -> PathBuf {
-    git_dir.join("refs/heads").join(name)
+    git_dir.join(get_reference_relative_path(name))
+}
+
+pub fn get_reference_relative_path(name: &str) -> PathBuf {
+    PathBuf::from("refs/heads").join(name)
 }
 
 pub fn create_object_path(git_dir: &Path, oid: &Oid) -> GitResult<PathBuf> {
