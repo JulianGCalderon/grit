@@ -1,7 +1,6 @@
 use std::{
     fs::{self, create_dir, create_dir_all, remove_dir_all, write, File},
     io::{self},
-    os::unix::fs::MetadataExt as _,
     path::Path,
 };
 
@@ -87,25 +86,10 @@ pub fn update_index(file: &Path) -> GitResult<()> {
     let entry = {
         let metadata = fs::metadata(file)?;
         let name = file.to_str().expect("filename is not utf8").to_string();
-        IndexEntry {
-            ctime: metadata.ctime() as i32,
-            ctime_nsec: metadata.ctime_nsec() as i32,
-            mtime: metadata.mtime() as i32,
-            mtime_nsec: metadata.mtime_nsec() as i32,
-            dev: metadata.dev() as u32,
-            ino: metadata.ino() as u32,
-            mode: metadata.mode() as u32,
-            uid: metadata.uid() as u32,
-            gid: metadata.gid() as u32,
-            size: metadata.size() as u32,
-            oid: blob_id.clone(),
-            assume_valid: false,
-            stage: 0,
-            name,
-        }
+        IndexEntry::new(metadata, blob_id, false, 0, name)?
     };
 
-    index.entries.insert(blob_id, entry);
+    index.push(entry);
 
     index.serialize_to_path(index_path)?;
 
@@ -118,16 +102,14 @@ pub fn write_tree() -> GitResult<()> {
     let index_path = git_dir.join("index");
     let index = Index::deserialize_from_path(index_path)?;
 
-    let mut index_entries: Vec<IndexEntry> = index.entries.clone().into_values().collect();
-    index_entries.sort();
-
     let tree = Tree {
-        entries: index_entries
+        entries: index
+            .entries()
             .iter()
             .map(|index_entry| TreeEntry {
-                mode: index_entry.mode,
-                name: index_entry.name.clone(),
-                oid: index_entry.oid.clone(),
+                mode: index_entry.mode(),
+                name: index_entry.name().to_string(),
+                oid: index_entry.oid().clone(),
             })
             .collect(),
     };

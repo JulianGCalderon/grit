@@ -1,7 +1,7 @@
 use std::{
-    collections::HashMap,
-    fs::File,
+    fs::{File, Metadata},
     io::{BufRead, BufReader, Write},
+    os::unix::fs::MetadataExt,
     path::Path,
 };
 
@@ -16,35 +16,32 @@ use crate::{
 const INDEX_SIGNATURE: &str = "DIRC";
 const INDEX_VERSION: u32 = 2;
 
-// should not be public, maybe use an IndexBuilder?
 #[derive(Default, PartialEq, Eq, Debug)]
 pub struct Index {
-    // should be a vector
-    pub entries: HashMap<Oid, IndexEntry>,
-}
-
-#[derive(PartialEq, Eq, Clone, Debug)]
-pub struct IndexEntry {
-    pub ctime: i32,
-    pub ctime_nsec: i32,
-    pub mtime: i32,
-    pub mtime_nsec: i32,
-    pub dev: u32,
-    pub ino: u32,
-    // a subset of mode is allowed
-    pub mode: u32,
-    pub uid: u32,
-    pub gid: u32,
-    pub size: u32,
-    pub oid: Oid,
-    // flags
-    pub assume_valid: bool,
-    pub stage: u8, // the real type is u2
-    // should be canonicalized
-    pub name: String,
+    entries: Vec<IndexEntry>,
 }
 
 impl Index {
+    pub fn new(mut entries: Vec<IndexEntry>) -> Self {
+        entries.sort();
+
+        Self { entries }
+    }
+
+    pub fn entries(&self) -> &[IndexEntry] {
+        &self.entries
+    }
+
+    pub fn push(&mut self, entry: IndexEntry) {
+        match self
+            .entries
+            .binary_search_by_key(&entry.name.as_str(), |entry| entry.name.as_str())
+        {
+            Ok(pos) => self.entries[pos] = entry,
+            Err(pos) => self.entries.insert(pos, entry),
+        }
+    }
+
     pub fn serialize_to_path<P: AsRef<Path>>(&self, path: P) -> GitResult<()> {
         let file = File::create(path)?;
         self.serialize(file)
@@ -62,10 +59,7 @@ impl Index {
         writer.write_all(&(self.entries.len() as u32).to_be_bytes())?;
         hasher.write_all(&(self.entries.len() as u32).to_be_bytes())?;
 
-        let mut entries: Vec<IndexEntry> = self.entries.clone().into_values().collect();
-        entries.sort();
-
-        for entry in entries {
+        for entry in &self.entries {
             entry.serialize(&mut writer)?;
             entry.serialize(&mut hasher)?;
         }
@@ -91,19 +85,61 @@ impl Index {
 
         let length = u32::from_be_bytes(length_bytes);
 
-        let mut entries = HashMap::with_capacity(length as usize);
+        let mut entries = Vec::with_capacity(length as usize);
 
         for _ in 0..length {
             let entry = IndexEntry::deserialize(&mut reader)?;
-            let oid = entry.oid.clone();
-            entries.insert(oid, entry);
+            entries.push(entry);
         }
 
-        Ok(Index { entries })
+        Ok(Index::new(entries))
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct IndexEntry {
+    ctime: i32,
+    ctime_nsec: i32,
+    mtime: i32,
+    mtime_nsec: i32,
+    dev: u32,
+    ino: u32,
+    mode: u32,
+    uid: u32,
+    gid: u32,
+    size: u32,
+    oid: Oid,
+    assume_valid: bool,
+    stage: u8,
+    name: String,
+}
+
 impl IndexEntry {
+    pub fn new(
+        metadata: Metadata,
+        oid: Oid,
+        assume_valid: bool,
+        stage: u8,
+        name: String,
+    ) -> GitResult<Self> {
+        Ok(Self {
+            ctime: metadata.ctime() as i32,
+            ctime_nsec: metadata.ctime_nsec() as i32,
+            mtime: metadata.mtime() as i32,
+            mtime_nsec: metadata.mtime_nsec() as i32,
+            dev: metadata.dev() as u32,
+            ino: metadata.ino() as u32,
+            mode: metadata.mode() as u32,
+            uid: metadata.uid() as u32,
+            gid: metadata.gid() as u32,
+            size: metadata.size() as u32,
+            oid,
+            assume_valid,
+            stage,
+            name,
+        })
+    }
+
     pub fn serialize<W: Write>(&self, mut writer: W) -> GitResult<()> {
         writer.write_all(&self.ctime.to_be_bytes())?;
         writer.write_all(&self.ctime_nsec.to_be_bytes())?;
@@ -224,6 +260,49 @@ impl IndexEntry {
             name,
         })
     }
+
+    pub fn ctime(&self) -> i32 {
+        self.ctime
+    }
+    pub fn ctime_nsec(&self) -> i32 {
+        self.ctime_nsec
+    }
+    pub fn mtime(&self) -> i32 {
+        self.mtime
+    }
+    pub fn mtime_nsec(&self) -> i32 {
+        self.mtime_nsec
+    }
+    pub fn dev(&self) -> u32 {
+        self.dev
+    }
+    pub fn ino(&self) -> u32 {
+        self.ino
+    }
+    pub fn mode(&self) -> u32 {
+        self.mode
+    }
+    pub fn uid(&self) -> u32 {
+        self.uid
+    }
+    pub fn gid(&self) -> u32 {
+        self.gid
+    }
+    pub fn size(&self) -> u32 {
+        self.size
+    }
+    pub fn oid(&self) -> &Oid {
+        &self.oid
+    }
+    pub fn assume_valid(&self) -> bool {
+        self.assume_valid
+    }
+    pub fn stage(&self) -> u8 {
+        self.stage
+    }
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 impl PartialOrd for IndexEntry {
@@ -300,12 +379,7 @@ mod tests {
                 name: "name3".to_string(),
             },
         ];
-        let index = Index {
-            entries: entries
-                .into_iter()
-                .map(|entry| (entry.oid.clone(), entry))
-                .collect(),
-        };
+        let index = Index::new(entries);
 
         let mut serialized = Vec::new();
         index.serialize(&mut serialized).unwrap();
