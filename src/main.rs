@@ -13,25 +13,11 @@ struct Cli {
 #[derive(Subcommand)]
 enum Command {
     Init,
-    HashObject {
-        #[arg()]
-        path: PathBuf,
-    },
-    CatFile {
-        #[arg()]
-        hash: String,
-    },
-    UpdateIndex {
-        #[arg()]
-        path: PathBuf,
-    },
+    HashObject { path: PathBuf },
+    CatFile { hash: String },
+    UpdateIndex { path: PathBuf },
     WriteTree,
-    CommitTree {
-        #[arg()]
-        hash: String,
-        #[arg()]
-        message: String,
-    },
+    CommitTree { hash: String, message: String },
 }
 
 fn main() -> GitResult<()> {
