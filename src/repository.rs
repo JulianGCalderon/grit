@@ -47,6 +47,14 @@ pub fn get_object_path(git_dir: &Path, oid: &Oid) -> PathBuf {
     ))
 }
 
+pub fn create_object_path(git_dir: &Path, oid: &Oid) -> GitResult<PathBuf> {
+    let object_path = get_object_path(git_dir, oid);
+    if let Some(base) = object_path.parent() {
+        create_dir_all(base)?;
+    };
+    Ok(object_path)
+}
+
 pub fn blob(path: &Path) -> GitResult<Oid> {
     let git_dir = get_git_dir();
 

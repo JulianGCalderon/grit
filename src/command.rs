@@ -7,7 +7,10 @@ use std::{
 use crate::{
     index::{Index, IndexEntry},
     object::{Blob, Commit, Oid, Tree, TreeEntry},
-    repository::{blob, get_git_dir, get_object_path, GitResult, DEFAULT_CONTENT, DEFAULT_HEAD},
+    repository::{
+        blob, create_object_path, get_git_dir, get_object_path, GitResult, DEFAULT_CONTENT,
+        DEFAULT_HEAD,
+    },
 };
 
 pub fn init() -> GitResult<()> {
@@ -113,10 +116,7 @@ pub fn write_tree() -> GitResult<()> {
     );
 
     let tree_id = tree.hash();
-    let tree_path = get_object_path(&git_dir, &tree_id);
-    if let Some(base) = tree_path.parent() {
-        create_dir_all(base)?;
-    };
+    let tree_path = create_object_path(&git_dir, &tree_id)?;
     let tree_file = File::create(tree_path)?;
 
     tree.serialize(tree_file)?;
@@ -139,10 +139,7 @@ pub fn commit_tree(tree_id: String, message: String) -> GitResult<()> {
     )?;
 
     let commit_id = commit.hash();
-    let commit_path = get_object_path(&git_dir, &commit_id);
-    if let Some(base) = commit_path.parent() {
-        create_dir_all(base)?;
-    };
+    let commit_path = create_object_path(&git_dir, &commit_id)?;
     let commit_file = File::create(commit_path)?;
 
     commit.serialize(commit_file)?;
