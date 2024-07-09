@@ -25,6 +25,14 @@ const GIT_DIR_ENV: &str = "GRIT_DIR";
 
 const OBJECT_PREFIX_LENGTH: usize = 2;
 
+pub const DEFAULT_HEAD: &str = "ref: refs/heads/master\n";
+pub const DEFAULT_CONTENT: &str = "\
+            [core]\n\
+            \trepositoryformatversion = 0\n\
+            \tfilemode = true\n\
+            \tbare = false\n\
+            \tlogallrefupdates\n";
+
 pub fn get_git_dir() -> PathBuf {
     let git_dir = env::var(GIT_DIR_ENV);
     let git_dir = git_dir.as_deref().unwrap_or(GIT_DIR);

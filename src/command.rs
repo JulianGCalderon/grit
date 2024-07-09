@@ -7,30 +7,22 @@ use std::{
 use crate::{
     index::{Index, IndexEntry},
     object::{Blob, Commit, Oid, Tree, TreeEntry},
-    repository::{blob, get_git_dir, get_object_path, GitResult},
+    repository::{blob, get_git_dir, get_object_path, GitResult, DEFAULT_CONTENT, DEFAULT_HEAD},
 };
 
 pub fn init() -> GitResult<()> {
     let git_dir = get_git_dir();
 
-    let _ = remove_dir_all(&git_dir);
     create_dir_all(&git_dir)?;
 
     let head = git_dir.join("HEAD");
     if !head.exists() {
-        write(head, "ref: refs/heads/master\n")?;
+        write(head, DEFAULT_HEAD.as_bytes())?;
     }
 
     let config = git_dir.join("config");
     if !config.exists() {
-        let contents = "\
-            [core]\n\
-            \trepositoryformatversion = 0\n\
-            \tfilemode = true\n\
-            \tbare = false\n\
-            \tlogallrefupdates\n";
-
-        write(config, contents)?;
+        write(config, DEFAULT_CONTENT.as_bytes())?;
     }
 
     let branches = git_dir.join("branches");
