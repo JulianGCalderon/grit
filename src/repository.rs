@@ -25,7 +25,7 @@ const GIT_DIR_ENV: &str = "GRIT_DIR";
 
 const OBJECT_PREFIX_LENGTH: usize = 2;
 
-pub const DEFAULT_HEAD: &str = "ref: refs/heads/master\n";
+pub const DEFAULT_BRANCH: &str = "master";
 pub const DEFAULT_CONTENT: &str = "\
             [core]\n\
             \trepositoryformatversion = 0\n\
@@ -45,6 +45,10 @@ pub fn get_object_path(git_dir: &Path, oid: &Oid) -> PathBuf {
         &oid[..OBJECT_PREFIX_LENGTH],
         &oid[OBJECT_PREFIX_LENGTH..]
     ))
+}
+
+pub fn get_reference_path(git_dir: &Path, name: &str) -> PathBuf {
+    git_dir.join("refs/heads").join(name)
 }
 
 pub fn create_object_path(git_dir: &Path, oid: &Oid) -> GitResult<PathBuf> {

@@ -8,8 +8,8 @@ use crate::{
     index::{Index, IndexEntry},
     object::{Blob, Commit, Oid, Tree, TreeEntry},
     repository::{
-        blob, create_object_path, get_git_dir, get_object_path, GitResult, DEFAULT_CONTENT,
-        DEFAULT_HEAD,
+        blob, create_object_path, get_git_dir, get_object_path, get_reference_path, GitResult,
+        DEFAULT_BRANCH, DEFAULT_CONTENT,
     },
 };
 
@@ -20,7 +20,17 @@ pub fn init() -> GitResult<()> {
 
     let head = git_dir.join("HEAD");
     if !head.exists() {
-        write(head, DEFAULT_HEAD.as_bytes())?;
+        write(
+            head,
+            format!(
+                "ref: {}",
+                get_reference_path(&git_dir, DEFAULT_BRANCH)
+                    .into_os_string()
+                    .into_string()
+                    .expect("references are always utf8")
+            )
+            .as_bytes(),
+        )?;
     }
 
     let config = git_dir.join("config");
