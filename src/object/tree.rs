@@ -8,16 +8,14 @@ use crate::{repository::GitResult, utils::extract_bits};
 use super::Oid;
 
 pub struct Tree {
-    pub entries: Vec<TreeEntry>,
-}
-
-pub struct TreeEntry {
-    pub mode: u32,
-    pub name: String,
-    pub oid: Oid,
+    entries: Vec<TreeEntry>,
 }
 
 impl Tree {
+    pub fn new(entries: Vec<TreeEntry>) -> Self {
+        Self { entries }
+    }
+
     pub fn hash(&self) -> Oid {
         let mut hasher = Sha1::new();
         let header = self.header();
@@ -57,7 +55,17 @@ impl Tree {
     }
 }
 
+pub struct TreeEntry {
+    mode: u32,
+    name: String,
+    oid: Oid,
+}
+
 impl TreeEntry {
+    pub fn new(mode: u32, name: String, oid: Oid) -> GitResult<Self> {
+        Ok(Self { mode, name, oid })
+    }
+
     pub fn serialize<W: Write>(&self, mut writer: W) -> GitResult<()> {
         let file_type_1 = extract_bits(self.mode, 0b1, 15) as u8 + b'0';
         let file_type_2 = extract_bits(self.mode, 0o7, 12) as u8 + b'0';

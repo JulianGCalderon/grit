@@ -102,17 +102,20 @@ pub fn write_tree() -> GitResult<()> {
     let index_path = git_dir.join("index");
     let index = Index::deserialize_from_path(index_path)?;
 
-    let tree = Tree {
-        entries: index
+    let tree = Tree::new(
+        index
             .entries()
             .iter()
-            .map(|index_entry| TreeEntry {
-                mode: index_entry.mode(),
-                name: index_entry.name().to_string(),
-                oid: index_entry.oid().clone(),
+            .map(|index_entry| {
+                TreeEntry::new(
+                    index_entry.mode(),
+                    index_entry.name().to_string(),
+                    index_entry.oid().clone(),
+                )
+                .expect("index entries are already valid")
             })
             .collect(),
-    };
+    );
 
     let tree_id = tree.hash();
     let tree_path = get_object_path(&git_dir, &tree_id);
