@@ -64,6 +64,11 @@ impl Commit {
 
         encoder.write_all(&self.header())?;
 
+        for parent in &self.parents {
+            let parent_line = format!("parent {}\n", parent);
+            encoder.write_all(parent_line.as_bytes())?;
+        }
+
         let tree_line = format!("tree {}\n", self.tree_id);
         encoder.write_all(tree_line.as_bytes())?;
 
@@ -92,11 +97,13 @@ impl Commit {
 
     fn size(&self) -> usize {
         // 106 bytes are fixed, the rest is variable
+        // each parent line occupies 49 bytes
         106 + self.author.as_bytes().len()
             + self.author_email.as_bytes().len()
             + self.commiter.as_bytes().len()
             + self.commiter_email.as_bytes().len()
             + self.message.as_bytes().len()
+            + self.parents.len() * 48
     }
 }
 
