@@ -1,12 +1,15 @@
-use std::io::{Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 
-use flate2::{write::ZlibEncoder as ZlibWriteEncoder, Compression};
+use flate2::{
+    read::ZlibDecoder as ZlibReadDecoder, write::ZlibEncoder as ZlibWriteEncoder, Compression,
+};
 use sha1::{Digest, Sha1};
 
 use crate::{repository::GitResult, utils::extract_bits};
 
-use super::Oid;
+use super::{Oid, RawOid};
 
+#[derive(Default, PartialEq, Eq, Debug)]
 pub struct Tree {
     entries: Vec<TreeEntry>,
 }
@@ -45,8 +48,19 @@ impl Tree {
         Ok(())
     }
 
-    pub fn deserialize<R: Read>(&self, _reader: R) -> GitResult<()> {
-        todo!()
+    pub fn deserialize<R: Read>(reader: R) -> GitResult<Self> {
+        let mut decoder = BufReader::new(ZlibReadDecoder::new(reader));
+
+        let mut header_bytes = Vec::new();
+        decoder.read_until(b'\0', &mut header_bytes)?;
+
+        let mut entries = Vec::new();
+
+        while let Ok(entry) = TreeEntry::deserialize(&mut decoder) {
+            entries.push(entry);
+        }
+
+        Ok(Self::new(entries))
     }
 
     fn header(&self) -> Vec<u8> {
@@ -55,6 +69,7 @@ impl Tree {
     }
 }
 
+#[derive(PartialEq, Eq, Debug)]
 pub struct TreeEntry {
     mode: u32,
     name: String,
@@ -88,22 +103,109 @@ impl TreeEntry {
         Ok(())
     }
 
-    pub fn deserialize<R: Read>(&self, _reader: R) -> GitResult<()> {
-        todo!()
+    pub fn deserialize<R: BufRead>(mut reader: R) -> GitResult<Self> {
+        let mut file_type_1_byte = [0; 1];
+        reader.read_exact(&mut file_type_1_byte)?;
+        let file_type_1 = u8::from_be_bytes(file_type_1_byte) - b'0';
+
+        let mut file_type_2_byte = [0; 1];
+        reader.read_exact(&mut file_type_2_byte)?;
+        let file_type_2 = u8::from_be_bytes(file_type_2_byte) - b'0';
+
+        let mut special_byte = [0; 1];
+        reader.read_exact(&mut special_byte)?;
+        let special = u8::from_be_bytes(special_byte) - b'0';
+
+        let mut owner_byte = [0; 1];
+        reader.read_exact(&mut owner_byte)?;
+        let owner = u8::from_be_bytes(owner_byte) - b'0';
+
+        let mut group_byte = [0; 1];
+        reader.read_exact(&mut group_byte)?;
+        let group = u8::from_be_bytes(group_byte) - b'0';
+
+        let mut others_byte = [0; 1];
+        reader.read_exact(&mut others_byte)?;
+        let others = u8::from_be_bytes(others_byte) - b'0';
+
+        let mode = ((file_type_1 as u32) << 15)
+            | ((file_type_2 as u32) << 12)
+            | ((special as u32) << 9)
+            | ((owner as u32) << 6)
+            | ((group as u32) << 3)
+            | ((others as u32) << 0);
+
+        let mut garbage = [0; 1];
+        reader.read_exact(&mut garbage)?;
+
+        let mut name = Vec::new();
+        reader.read_until(b'\0', &mut name)?;
+        name.pop();
+        let name =
+            String::from_utf8(name).map_err(|_| io::Error::from(io::ErrorKind::InvalidInput))?;
+
+        let mut raw_oid = RawOid::default();
+        reader.read_exact(&mut raw_oid)?;
+        let oid = Oid::from_raw_bytes(raw_oid);
+
+        Ok(Self { mode, name, oid })
     }
 
     pub fn size(&self) -> usize {
-        // 28 bytes are fixed, the only variable element is the entry name
+        // 28 bytes are fixed, entry name is variable
         28 + self.name.len()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
+    use pretty_assertions_sorted::assert_eq;
+
+    use super::*;
 
     #[test]
-    pub fn can_serialize_and_deserialized() {}
+    pub fn can_serialize_and_deserialized() {
+        let entries = vec![
+            TreeEntry {
+                mode: 1234,
+                name: "name1".to_string(),
+                oid: Oid::new("f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc").unwrap(),
+            },
+            TreeEntry {
+                mode: 1234,
+                name: "name2".to_string(),
+                oid: Oid::new("f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc").unwrap(),
+            },
+            TreeEntry {
+                mode: 1234,
+                name: "name3".to_string(),
+                oid: Oid::new("f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc").unwrap(),
+            },
+        ];
+        let tree = Tree::new(entries);
+
+        let mut serialized = Vec::new();
+        tree.serialize(&mut serialized).unwrap();
+
+        let serialized_cursor = Cursor::new(serialized);
+        let deserialized = Tree::deserialize(serialized_cursor).unwrap();
+
+        assert_eq!(tree, deserialized);
+    }
 
     #[test]
-    pub fn size_is_correct() {}
+    pub fn size_is_correct() {
+        let entry = TreeEntry {
+            mode: 1234,
+            name: "name".to_string(),
+            oid: Oid::new("f0133c7517d34d37f8dca8c8444c6a9cdd7e4cdc").unwrap(),
+        };
+
+        let mut serialized = Vec::new();
+        entry.serialize(&mut serialized).unwrap();
+
+        assert_eq!(serialized.len(), entry.size())
+    }
 }
