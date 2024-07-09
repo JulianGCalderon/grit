@@ -129,9 +129,9 @@ impl IndexEntry {
             mtime_nsec: metadata.mtime_nsec() as i32,
             dev: metadata.dev() as u32,
             ino: metadata.ino() as u32,
-            mode: metadata.mode() as u32,
-            uid: metadata.uid() as u32,
-            gid: metadata.gid() as u32,
+            mode: metadata.mode(),
+            uid: metadata.uid(),
+            gid: metadata.gid(),
             size: metadata.size() as u32,
             oid,
             assume_valid,
@@ -161,7 +161,7 @@ impl IndexEntry {
         let flags = assume_valid_bit | extended_flag_bit | stage_bits | name_length_as_u12;
 
         writer.write_all(&flags.to_be_bytes())?;
-        writer.write_all(&self.name.as_bytes())?;
+        writer.write_all(self.name.as_bytes())?;
 
         // entry size must be multiple of 8
         // - first 10 fields occupy 4 bytes each: offset = 0
@@ -169,7 +169,7 @@ impl IndexEntry {
         // - flags occupy 2 bytes: offset = 2
         // - name is variable length: offset = ?
         let offset = (4 + 2 + self.name.len()) % 8;
-        let padding = vec![0; (8 - offset) as usize];
+        let padding = vec![0; 8 - offset];
         writer.write_all(&padding)?;
 
         Ok(())
@@ -240,7 +240,7 @@ impl IndexEntry {
         // - name is variable length: offset = ?
         let offset = (4 + 2 + name.len()) % 8;
         // we use 7 instead of 8 as we already read the string null terminator
-        let mut padding_bytes = vec![0; (7 - offset) as usize];
+        let mut padding_bytes = vec![0; 7 - offset];
         reader.read_exact(&mut padding_bytes)?;
 
         Ok(IndexEntry {

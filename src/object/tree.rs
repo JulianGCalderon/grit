@@ -89,16 +89,16 @@ impl TreeEntry {
         let group = extract_bits(self.mode, 0o70, 3) as u8 + b'0';
         let others = extract_bits(self.mode, 0o7, 0) as u8 + b'0';
 
-        writer.write(&file_type_1.to_be_bytes())?;
-        writer.write(&file_type_2.to_be_bytes())?;
-        writer.write(&special.to_be_bytes())?;
-        writer.write(&owner.to_be_bytes())?;
-        writer.write(&group.to_be_bytes())?;
-        writer.write(&others.to_be_bytes())?;
-        writer.write(&[b' '])?;
-        writer.write(self.name.as_bytes())?;
-        writer.write(&[b'\0'])?;
-        writer.write(&self.oid.to_raw_bytes())?;
+        writer.write_all(&file_type_1.to_be_bytes())?;
+        writer.write_all(&file_type_2.to_be_bytes())?;
+        writer.write_all(&special.to_be_bytes())?;
+        writer.write_all(&owner.to_be_bytes())?;
+        writer.write_all(&group.to_be_bytes())?;
+        writer.write_all(&others.to_be_bytes())?;
+        writer.write_all(&[b' '])?;
+        writer.write_all(self.name.as_bytes())?;
+        writer.write_all(&[b'\0'])?;
+        writer.write_all(&self.oid.to_raw_bytes())?;
 
         Ok(())
     }
@@ -133,7 +133,7 @@ impl TreeEntry {
             | ((special as u32) << 9)
             | ((owner as u32) << 6)
             | ((group as u32) << 3)
-            | ((others as u32) << 0);
+            | (others as u32);
 
         let mut garbage = [0; 1];
         reader.read_exact(&mut garbage)?;
