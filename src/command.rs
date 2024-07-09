@@ -1,12 +1,9 @@
 use std::{
     fs::{self, create_dir, create_dir_all, remove_dir_all, write, File},
-    io::{self, Write},
+    io::{self},
     os::unix::fs::MetadataExt as _,
     path::Path,
 };
-
-use flate2::Compression;
-use sha1::{Digest, Sha1};
 
 use crate::{
     index::{Index, IndexEntry},
