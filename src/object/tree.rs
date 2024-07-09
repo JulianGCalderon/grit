@@ -67,11 +67,11 @@ impl TreeEntry {
     }
 
     pub fn serialize<W: Write>(&self, mut writer: W) -> GitResult<()> {
-        let file_type_1 = extract_bits(self.mode, 0b1, 15) as u8 + b'0';
-        let file_type_2 = extract_bits(self.mode, 0o7, 12) as u8 + b'0';
-        let special = extract_bits(self.mode, 0o7, 9) as u8 + b'0';
-        let owner = extract_bits(self.mode, 0o7, 6) as u8 + b'0';
-        let group = extract_bits(self.mode, 0o7, 3) as u8 + b'0';
+        let file_type_1 = extract_bits(self.mode, 0o100000, 15) as u8 + b'0';
+        let file_type_2 = extract_bits(self.mode, 0o70000, 12) as u8 + b'0';
+        let special = extract_bits(self.mode, 0o7000, 9) as u8 + b'0';
+        let owner = extract_bits(self.mode, 0o700, 6) as u8 + b'0';
+        let group = extract_bits(self.mode, 0o70, 3) as u8 + b'0';
         let others = extract_bits(self.mode, 0o7, 0) as u8 + b'0';
 
         writer.write(&file_type_1.to_be_bytes())?;

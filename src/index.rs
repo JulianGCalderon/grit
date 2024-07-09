@@ -223,8 +223,8 @@ impl IndexEntry {
         let mut flags_bytes = [0; 2];
         reader.read_exact(&mut flags_bytes)?;
         let flags = u16::from_be_bytes(flags_bytes);
-        let assume_valid = extract_bits(flags, 0b1, 15) != 0;
-        let stage = extract_bits(flags, 0b11, 12) as u8;
+        let assume_valid = extract_bits(flags, 0b1000000000000000, 15) != 0;
+        let stage = extract_bits(flags, 0b11000000000000, 12) as u8;
         let _name_length = extract_bits(flags, 0xFFF, 0);
 
         let mut name_bytes = Vec::new();
